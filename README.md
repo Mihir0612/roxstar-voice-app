@@ -8,7 +8,7 @@ multiplayer spin wheel.
 | **Backend** | Node.js 22 · TypeScript · Fastify 5 · Socket.IO 4 · PostgreSQL 16 |
 | **Android** | Kotlin · Jetpack Compose · Oboe (C++/JNI) · Retrofit · Room |
 | **Infrastructure** | Docker · GitHub Actions · GCP Cloud Run + Cloud SQL |
-| **Tests executed** | **192 passing** — 90 backend, 45 native DSP, 57 end-to-end |
+| **Tests executed** | **209 passing** — 90 backend, 45 native DSP, 57 end-to-end, 17 Android |
 
 ---
 
@@ -19,17 +19,16 @@ multiplayer spin wheel.
 | Backend, database, tests | **Complete and verified** — 90 tests against a real Postgres |
 | Docker packaging | **Complete and verified** — image built, run, exercised |
 | End-to-end verification | **Complete** — 57/57 against the running container |
-| Android app + native Oboe | **Source complete**, DSP verified by measurement |
+| Android app + native Oboe | **Built** — debug and release APKs, native libs for arm64-v8a and x86_64 |
 | CI/CD pipeline | **Written**, not executed (needs a GitHub repo + secrets) |
 | Cloud deployment assets | **Written**, not applied (needs GCP credentials) |
 | **Cloud deployment** | **NOT DONE** — no credentials in this environment |
-| **Release APK** | **NOT BUILT** — no Android NDK in this environment |
+| **Release APK** | **BUILT** — 4.8 MB R8-minified, pending a signing key |
 | **Demo recording** | **NOT PRODUCED** — needs a device and a person |
 
-The three "not done" items are blocked by things this machine does not have, not
-by the code. Each is one documented command away. `DEPLOYMENT_VERIFICATION.md`
-records exactly what was executed and what was not — nothing is claimed that was
-not run.
+The remaining "not done" items are blocked by things this machine does not have,
+not by the code. `DEPLOYMENT_VERIFICATION.md` records exactly what was executed
+and what was not — nothing is claimed that was not run.
 
 ---
 
@@ -79,13 +78,22 @@ cd android-app && ./gradlew test            # 17 JVM unit tests (needs JDK 17)
 Needs Android Studio with the **NDK** and CMake installed — the audio engine is
 C++. See [`android-app/README.md`](./android-app/README.md).
 
+Install **NDK** and **CMake** from Android Studio → Settings → Languages &
+Frameworks → Android SDK → SDK Tools. Then:
+
 ```bash
-sdkmanager "ndk;26.3.11579264" "cmake;3.22.1"
+export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-17.0.20.101-hotspot"
 cd android-app
 ./gradlew assembleDebug        # points at http://10.0.2.2:8080 (emulator → host)
+./gradlew assembleRelease -PROXSTAR_API_BASE_URL=https://your-service.run.app
 ```
 
-A **release** build refuses to compile against a localhost or placeholder URL.
+A **release** build refuses to compile against a localhost or placeholder URL —
+verified: both are rejected with a message naming the problem.
+
+Built and verified on NDK 30.0.16248370, CMake 3.22.1 (AGP installs this itself)
+and Temurin JDK 17. `ndkVersion` is pinned in `app/build.gradle.kts`; override it
+with `-PROXSTAR_NDK_VERSION=...` if your SDK has a different one.
 
 ---
 

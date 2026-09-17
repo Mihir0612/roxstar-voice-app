@@ -136,7 +136,7 @@ altered, so nothing needed escalation to the Tech Manager.
 
 | Item | Owner | Blocker |
 |---|---|---|
-| Build the release APK | Full Stack | No Android NDK in this environment |
+| Build the release APK | Full Stack | DONE — built, natives and ProGuard rules verified. Unsigned. |
 | Deploy to Cloud Run | DevOps | No GCP credentials; requires the user's authorisation |
 | Verify the live endpoint | DevOps | Follows the deploy — `node tests/e2e/verify.mjs <url>` |
 | Record the 5–10 minute demo | Candidate | Needs a device and a person |

@@ -8,19 +8,29 @@ Kotlin + Jetpack Compose client with a native Oboe audio path.
 |---|---|---|
 | Android Studio | Ladybug (2024.2) or newer | Bundles a JDK 17 runtime |
 | Android SDK | API 35 | `compileSdk`/`targetSdk` |
-| **Android NDK** | 26.x or newer | **Required** -- the audio engine is C++ |
-| CMake | 3.22.1 | Installed through the SDK Manager |
+| **Android NDK** | 26.x or newer | **Required** -- the audio engine is C++. Verified on 30.0.16248370. |
+| CMake | 3.22.1 | AGP installs this itself on the first native build |
+| JDK | 17 | Temurin 17 verified. Studio's bundled JBR 25 is newer than Gradle 8.11.1 supports. |
 | Minimum device | API 26 | Oboe's AAudio backend needs 26+ |
 
-Install the NDK and CMake from **Android Studio -> SDK Manager -> SDK Tools**,
-or on the command line:
+Install the NDK from **Android Studio -> Settings -> Languages & Frameworks ->
+Android SDK -> SDK Tools**, ticking **NDK (Side by side)**. CMake does not need
+to be ticked -- AGP downloads the exact version it wants on the first native
+build. Oboe needs no install either; it arrives as a Maven AAR with a prefab
+package.
+
+`ndkVersion` is pinned in `app/build.gradle.kts` to the version this was built
+against. If your SDK has a different one:
 
 ```bash
-sdkmanager "ndk;26.3.11579264" "cmake;3.22.1"
+./gradlew assembleDebug -PROXSTAR_NDK_VERSION=<your-version>
 ```
 
-Without the NDK the Gradle build fails at the CMake step. Oboe itself needs no
-manual install -- it arrives as a Maven AAR with a prefab package.
+Set `JAVA_HOME` to a JDK 17 before building from the terminal:
+
+```bash
+export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-17.0.20.101-hotspot"
+```
 
 ## Configure the backend URL
 
@@ -47,10 +57,20 @@ rather than merely documented.
 ./gradlew assembleRelease -PROXSTAR_API_BASE_URL=https://your-service.run.app
 ```
 
-Output: `app/build/outputs/apk/release/app-release.apk`
+Outputs, both verified:
 
-A release build must be signed before install. Create a keystore and add a
-`signingConfigs` block, or install the debug APK for a demo.
+| File | Size | Notes |
+|---|---|---|
+| `app/build/outputs/apk/debug/app-debug.apk` | 21 MB | Installs directly |
+| `app/build/outputs/apk/release/app-release-unsigned.apk` | 4.8 MB | R8-minified, needs signing |
+
+Both carry `libroxstar_audio.so` and `liboboe.so` for arm64-v8a and x86_64.
+
+The release APK is unsigned. Create a keystore and add a `signingConfigs` block
+before distributing it, or install the debug APK for a demo.
+
+The release build **refuses** a placeholder, localhost or non-HTTPS endpoint --
+both bad cases were tested and rejected by name.
 
 ## Architecture
 

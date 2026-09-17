@@ -29,14 +29,16 @@ terraform.tfvars
 *.auto.tfvars
 
 # Android
-android-app/.gradle/
-android-app/local.properties
-android-app/.cxx/
-android-app/app/build/
-android-app/build/
+.gradle/
+local.properties
+# Native build output. AGP puts this under app/.cxx, not the module root.
+**/.cxx/
+**/build/
 *.apk
 *.aab
-!app-release-notes.md
+# Keep the Gradle wrapper -- it is how a fresh clone builds without
+# a preinstalled Gradle.
+!gradle/wrapper/gradle-wrapper.jar
 
 # Native
 native-audio/oboe/build/

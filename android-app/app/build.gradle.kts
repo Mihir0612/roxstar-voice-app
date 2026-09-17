@@ -9,6 +9,11 @@ android {
     namespace = "com.roxstar.app"
     compileSdk = 35
 
+    // Pinned to the NDK actually installed via the SDK Manager. AGP otherwise
+    // demands its own default version and fails the configure step. Override
+    // with -PROXSTAR_NDK_VERSION=... if your SDK has a different one.
+    ndkVersion = providers.gradleProperty("ROXSTAR_NDK_VERSION").orNull ?: "30.0.16248370"
+
     defaultConfig {
         applicationId = "com.roxstar.app"
         minSdk = 26 // Oboe supports 16+, but AAudio (its low-latency backend) needs 26+.
@@ -66,7 +71,9 @@ android {
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
+            // Version deliberately not pinned: AGP then uses whichever CMake the
+            // SDK Manager installed, instead of failing because one exact build
+            // is absent.
         }
     }
 

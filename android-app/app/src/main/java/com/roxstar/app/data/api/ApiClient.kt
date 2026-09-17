@@ -2,7 +2,6 @@ package com.roxstar.app.data.api
 
 import com.roxstar.app.BuildConfig
 import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Response
@@ -52,9 +51,11 @@ object ApiClient {
 
     val tokenStore = TokenStore()
 
-    private val moshi: Moshi = Moshi.Builder()
-        .add(KotlinJsonAdapterFactory())
-        .build()
+    // No KotlinJsonAdapterFactory: every DTO is annotated
+    // @JsonClass(generateAdapter = true), so KSP generates its adapter at build
+    // time. Adding the reflective factory as well would pull in kotlin-reflect
+    // and shadow the generated adapters with slower reflection.
+    private val moshi: Moshi = Moshi.Builder().build()
 
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
         .addInterceptor(AuthInterceptor(tokenStore))

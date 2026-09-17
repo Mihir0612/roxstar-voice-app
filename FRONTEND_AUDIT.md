@@ -3,7 +3,7 @@
 **Auditor:** Senior Full Stack Integration Developer
 **Target:** the implemented Android client in `/android-app` and `/native-audio`
 **Basis:** `TECH_MANAGER_REQUIREMENTS.md`, `TECH_MANAGER_DECISIONS.md`, the frozen contract in `docs/api/`
-**Verdict:** **PASS with one open item** — the APK has not been built in this environment
+**Verdict:** **PASS** — debug and release APKs built and inspected
 
 ---
 
@@ -173,6 +173,8 @@ not implemented would be the wrong kind of shortcut.
 | `NativeContractTest` | 6 | JNI ordinals vs the C++ switch, API values vs the DB CHECK, unknown codes never read as success |
 | `native-audio/tests` | 45 | Echo, pitch shift, WAV writer, pipeline — compiled and run |
 
+**All 17 JVM tests executed and passing** on Temurin JDK 17.
+
 **`NativeContractTest` is the one worth pointing at.** The effect ordinals are a
 hand-maintained agreement with a C++ `switch`; reordering the Kotlin enum would
 silently apply the wrong effect rather than fail to compile. The test pins them.
@@ -185,34 +187,51 @@ silently apply the wrong effect rather than fail to compile. The test pins them.
 
 ---
 
-## 9. Open item — the APK
+## 9. The APK — built and inspected
 
-**The release APK has not been built.** This environment has no Android NDK
-installed and the default JDK is Java 8, so the CMake step cannot run. Nothing
-about the code blocks it; the toolchain is simply absent.
+Built on NDK 30.0.16248370 with Temurin JDK 17. AGP installed CMake 3.22.1
+itself during the first configure.
 
-```bash
-sdkmanager "ndk;26.3.11579264" "cmake;3.22.1"
-cd android-app
-./gradlew assembleRelease -PROXSTAR_API_BASE_URL=https://<your-cloud-run-url>
+| Artifact | Size | Contents |
+|---|---|---|
+| `app-debug.apk` | 21 MB | Both ABIs, unminified |
+| `app-release-unsigned.apk` | 4.8 MB | R8-minified, 87 entries |
+
+Native libraries present for **arm64-v8a** and **x86_64**:
+
+```
+lib/<abi>/libroxstar_audio.so   127 KB   the Oboe engine and effects
+lib/<abi>/liboboe.so            280 KB   Oboe, via the Maven prefab
+lib/<abi>/libc++_shared.so              C++ runtime
 ```
 
-Mitigation for the risk this leaves open — *"APK ships pointing at localhost"*,
-which is on the Tech Manager's register — is already in place: the Gradle task
-`verifyReleaseEndpoint` **fails the release build** if the URL is the
-placeholder, a loopback address, or not HTTPS. The mistake is made impossible
-rather than merely documented.
+**ProGuard keep rules verified against the real minified DEX.** `NativeAudioBridge`
+and `nativeStartRecording` both survive R8 — had R8 renamed them, the native
+lookup would have thrown `UnsatisfiedLinkError` on the first tap to record, and
+only on a release build.
+
+**The endpoint guard was exercised, not just written:**
+
+| Attempt | Result |
+|---|---|
+| Placeholder URL | BLOCKED — "ROXSTAR_API_BASE_URL is still the placeholder" |
+| `http://localhost:8080` | BLOCKED — "points at a local address" |
+| `https://roxstar-backend-demo.a.run.app` | Accepted, APK produced |
+
+So *"APK ships pointing at localhost"* — on the Tech Manager's risk register — is
+now impossible rather than merely documented.
+
+**Remaining:** the release APK is unsigned. Signing needs a keystore, which is a
+credential the candidate creates; `app-debug.apk` installs directly for a demo.
 
 ---
 
 ## 10. Verdict
 
-**PASS with one open item.**
+**PASS.**
 
 The client implements every scored requirement, respects every architectural
 boundary, and adopted both contract items the Tech Manager assigned to it. The
-audio path is verified by measurement rather than assertion, and one real DSP
-bug was found and fixed as a result.
-
-The single open item is the APK build, blocked by a missing NDK in this
-environment and not by the code.
+audio path is verified by measurement rather than assertion — one real DSP bug
+was found and fixed as a result — and the APK is built, with its native
+libraries and ProGuard keep rules inspected rather than assumed.

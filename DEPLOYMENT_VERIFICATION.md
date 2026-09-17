@@ -178,8 +178,8 @@ integration tests are necessary and they were not sufficient.
 | Backend (unit, integration, websocket, concurrency) | 90 | 90 PASS |
 | Native DSP (host-compiled C++) | 45 | 45 PASS |
 | End-to-end against the container | 57 | 57 PASS |
-| Android JVM unit tests | 17 | written; not executed — no JDK 17 here |
-| **Executed total** | **192** | **192 PASS** |
+| Android JVM unit tests | 17 | 17 PASS — Temurin JDK 17 |
+| **Executed total** | **209** | **209 PASS** |
 
 ---
 
@@ -194,7 +194,7 @@ integration tests are necessary and they were not sufficient.
 | Authentication working | same script | **NOT DONE** |
 | CORS working | preflight against the live URL | **NOT DONE** |
 | Environment variables working | `/ready` + startup log | **NOT DONE** |
-| APK connects to the deployed backend | install and run the release APK | **NOT DONE** — no NDK |
+| APK connects to the deployed backend | install and run the release APK | **NOT DONE** — APK builds, but there is no deployment to point it at |
 | Logs available | Cloud Logging | **NOT DONE** |
 | Failure handling | same script, section 10 | verified locally |
 | Rollback | `rollback.sh` | written, not exercised |
@@ -209,7 +209,8 @@ Everything in that list runs from the one command in
 ```
 LOCAL CONTAINERISED DEPLOYMENT:  VERIFIED (57/57 functional checks)
 CLOUD DEPLOYMENT:                NOT PERFORMED
-APK:                             NOT BUILT (no NDK in this environment)
+APK:                             BUILT (debug + release, natives verified)
+                                 release APK is unsigned
 DEMO RECORDING:                  NOT PRODUCED
 ```
 
