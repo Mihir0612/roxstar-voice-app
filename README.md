@@ -34,6 +34,10 @@ and what was not — nothing is claimed that was not run.
 
 ## Quick start
 
+> **Want to run it on a phone?** See **[RUNNING.md](./RUNNING.md)** — it covers
+> installing the APK, reaching the backend over your LAN, and the bot helper
+> that lets one device test a spin that needs three players.
+
 ```bash
 # 1. Backend + database
 docker compose up -d
@@ -147,6 +151,7 @@ Dockerfile          Multi-stage backend image (built from the repo root)
 | [`docs/architecture/README.md`](./docs/architecture/README.md) | Five diagrams |
 | [`BACKEND_AUDIT.md`](./BACKEND_AUDIT.md) · [`FRONTEND_AUDIT.md`](./FRONTEND_AUDIT.md) · [`INTEGRATION_CONTRACT.md`](./INTEGRATION_CONTRACT.md) | Integration audits against the real code |
 | [`DEVOPS_DEPLOYMENT_PLAN.md`](./DEVOPS_DEPLOYMENT_PLAN.md) · [`DEPLOYMENT_VERIFICATION.md`](./DEPLOYMENT_VERIFICATION.md) | Deployment and what was actually verified |
+| [`RUNNING.md`](./RUNNING.md) | Getting the app onto a device and testing every flow by hand |
 
 ---
 

@@ -17,7 +17,7 @@ process.env.NODE_ENV = 'test';
 // and completes the suite's spins -- the tests then see 'skipped' and never
 // observe their own events. Sharing a database with a running service makes a
 // test suite non-deterministic, whichever service it is.
-process.env.DATABASE_URL ??= 'postgres://roxstar:roxstar_local_dev@localhost:5433/roxstar_test';
+process.env.DATABASE_URL ??= 'postgres://roxstar:roxstar_local_dev@localhost:5432/roxstar_test';
 process.env.AUTH_SECRET ??= 'test-secret-value-at-least-16-chars';
 process.env.LOG_LEVEL = 'silent';
 

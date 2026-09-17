@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DEBUG BUILDS ONLY.
+
+  This file lives in src/debug and overrides the strict one in src/main, so it
+  never reaches a release APK. Release builds keep cleartextTrafficPermitted
+  false and talk to Cloud Run over HTTPS.
+
+  Why it exists: the main config allows cleartext only to 10.0.2.2, the
+  emulator's alias for the host machine. A physical phone reaches the backend
+  over the LAN instead, at something like http://192.168.1.24:8080, and the
+  platform would silently block that. It surfaces in the app as an unexplained
+  network error rather than as anything that points at the real cause.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <!-- Lets a debug build sit behind a proxy such as Charles or mitmproxy. -->
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

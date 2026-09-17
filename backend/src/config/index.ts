@@ -66,6 +66,11 @@ export type AppConfig = z.infer<typeof schema> & {
 };
 
 function build(env: NodeJS.ProcessEnv): AppConfig {
+  if (!env.DATABASE_URL && typeof process.loadEnvFile === 'function') {
+    try {
+      process.loadEnvFile();
+    } catch {}
+  }
   const parsed = schema.safeParse(env);
 
   if (!parsed.success) {
