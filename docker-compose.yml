@@ -1,0 +1,49 @@
+# Local development and end-to-end testing.
+#
+# This is NOT the production deployment -- the PDF does not accept a local-only
+# backend. Production runs the same image on Cloud Run against Cloud SQL
+# (see /infrastructure).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: roxstar-postgres
+    environment:
+      POSTGRES_USER: roxstar
+      POSTGRES_PASSWORD: roxstar_local_dev
+      POSTGRES_DB: roxstar
+    ports:
+      - '5433:5432'
+    volumes:
+      - roxstar-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # The backend depends on this, so "accepting connections" is the only
+      # signal worth gating on.
+      test: ['CMD-SHELL', 'pg_isready -U roxstar -d roxstar']
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: roxstar-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      DATABASE_URL: postgres://roxstar:roxstar_local_dev@postgres:5432/roxstar
+      DATABASE_SSL: 'false'
+      # Local-only value. Production reads this from GCP Secret Manager (D29).
+      AUTH_SECRET: local-development-secret-not-for-production
+      LOG_LEVEL: info
+      CORS_ALLOWED_ORIGINS: 'http://localhost:5173,http://localhost:3000'
+    ports:
+      - '8080:8080'
+    restart: unless-stopped
+
+volumes:
+  roxstar-pgdata:

@@ -1,0 +1,729 @@
+openapi: 3.0.3
+
+info:
+  title: Roxstar Backend API
+  version: 1.0.0
+  description: |
+    Authoritative backend for Roxstar rooms, voice drafts and the spin wheel.
+
+    **This document is the frozen contract.** The Android client and the backend
+    are both written against it; the integration audit treats any divergence
+    between this file, `backend/src/models/dto.ts` and
+    `android-app/.../data/api/Dtos.kt` as a defect.
+
+    ## Authentication
+
+    Anonymous, device-bound sessions. `POST /api/v1/auth/session` exchanges a
+    display name and a device identifier for an HS256 bearer token valid for
+    seven days. There are no passwords and no personal data.
+
+    Rationale: the assessment requires owner/admin **authorization** but never
+    asks for user accounts. This is the smallest mechanism that makes
+    "only the owner can start a spin" enforceable.
+
+    ## Errors
+
+    Every non-2xx response uses one envelope:
+
+    ```json
+    { "error": { "code": "NOT_ENOUGH_PARTICIPANTS",
+                 "message": "A spin needs at least 3 eligible participants; this room has 2.",
+                 "details": { "found": 2, "required": 3 } },
+      "requestId": "req-7" }
+    ```
+
+    `code` is stable and machine-readable; branch on it. `message` is safe to
+    show a user. Stack traces, SQL and driver text never appear.
+
+    ## Idempotency
+
+    Mutating POSTs accept an `Idempotency-Key` header (a client-generated UUID).
+    A replay with the same key and the same body returns the stored response; a
+    different body under the same key returns `409 IDEMPOTENCY_KEY_REUSED`. Keys
+    are scoped per user and endpoint and expire after 24 hours.
+
+    It is **required** on `POST /rooms/{roomId}/spin/start`: a retried start that
+    created a second spin is the worst failure this system can produce.
+
+servers:
+  - url: http://localhost:8080
+    description: Local docker-compose
+  - url: https://roxstar-backend-REPLACE.a.run.app
+    description: Cloud Run (set after deployment)
+
+tags:
+  - name: Health
+  - name: Auth
+  - name: Rooms
+  - name: Drafts
+  - name: Spin
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Liveness
+      description: |
+        Process liveness only. **Deliberately does not touch the database** -- a
+        liveness probe that depends on Postgres turns a brief database blip into
+        a container restart storm. Not rate limited.
+      security: []
+      responses:
+        '200':
+          description: Process is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: roxstar-backend }
+                  uptimeSeconds: { type: integer, example: 1423 }
+                  timestamp: { type: string, format: date-time }
+
+  /ready:
+    get:
+      tags: [Health]
+      summary: Readiness
+      description: Verifies the database is reachable and no migrations are pending.
+      security: []
+      responses:
+        '200':
+          description: Ready to serve traffic
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ready }
+                  database: { type: string, example: ok }
+                  pendingMigrations: { type: integer, example: 0 }
+        '503':
+          description: Database unreachable or migrations pending
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /api/v1/auth/session:
+    post:
+      tags: [Auth]
+      summary: Create or refresh a device session
+      description: |
+        Returns the same user for the same `deviceId`, so reinstalling the app
+        on one handset does not create a second participant. The display name is
+        refreshed on each call.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [displayName, deviceId]
+              properties:
+                displayName: { type: string, minLength: 1, maxLength: 40, example: Ada }
+                deviceId:
+                  type: string
+                  minLength: 8
+                  maxLength: 128
+                  description: Opaque per-install identifier. Never a hardware serial or advertising id.
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string, description: HS256 bearer token }
+                  expiresIn: { type: integer, example: 604800 }
+                  user: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+
+  /api/v1/me:
+    get:
+      tags: [Auth]
+      summary: Current user
+      responses:
+        '200':
+          description: The authenticated user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/rooms:
+    post:
+      tags: [Rooms]
+      summary: Create a room
+      description: The creator becomes `OWNER` and is a member from the first moment.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, minLength: 1, maxLength: 60, default: Roxstar Room }
+      responses:
+        '201':
+          description: Room created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room: { $ref: '#/components/schemas/Room' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/IdempotencyConflict' }
+
+  /api/v1/rooms/{roomIdOrCode}/join:
+    post:
+      tags: [Rooms]
+      summary: Join a room
+      description: |
+        Accepts either a room UUID or the six-character join code.
+
+        **Idempotent.** Joining twice returns 200 both times and creates one
+        membership; `user_joined` is broadcast only on the first join, because a
+        duplicate would render the same participant twice on every client.
+
+        Re-joining after leaving reuses the existing membership row and never
+        escalates the caller's role.
+      parameters:
+        - name: roomIdOrCode
+          in: path
+          required: true
+          schema: { type: string, example: 7K4MPQ }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '200':
+          description: Joined, with the full room snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  room: { $ref: '#/components/schemas/Room' }
+                  member: { $ref: '#/components/schemas/Participant' }
+                  state: { $ref: '#/components/schemas/RoomState' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/RoomNotFound' }
+        '409':
+          description: The room is closed, or the Idempotency-Key was reused
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /api/v1/rooms/{roomId}/leave:
+    post:
+      tags: [Rooms]
+      summary: Leave a room
+      description: |
+        Immediate and permanent -- no disconnect grace period applies.
+
+        **If a spin is running, the caller forfeits their place**: they are
+        recorded as `LEFT` with the next elimination order and a
+        `user_eliminated` event with `reason: "LEFT"` is broadcast. If that
+        leaves one player, the winner is announced immediately; if it leaves
+        none, the spin is aborted.
+
+        Idempotent: leaving twice returns 200 with `left: false` the second
+        time, never 404.
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+      responses:
+        '200':
+          description: Left, or already gone
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  left:
+                    type: boolean
+                    description: false when the caller was already not a member
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/RoomNotFound' }
+
+  /api/v1/rooms/{roomId}/state:
+    get:
+      tags: [Rooms]
+      summary: Authoritative room state
+      description: |
+        The complete snapshot: room, participants, latest shared draft, the
+        active spin and the most recent finished spin. Identical in shape to the
+        `room_state` WebSocket event, because both come from one builder.
+
+        Use on room entry, after a reconnect and to reconcile missed events.
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+      responses:
+        '200':
+          description: Current state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RoomState' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/NotAMember' }
+        '404': { $ref: '#/components/responses/RoomNotFound' }
+
+  /api/v1/rooms/{roomId}/drafts/share:
+    post:
+      tags: [Drafts]
+      summary: Share a draft with the room
+      description: |
+        **Metadata only.** The audio file never leaves the recording device;
+        live audio streaming is out of scope. `hostedFileUrl` is accepted and
+        stored if a client supplies one, but this service hosts and streams
+        nothing.
+
+        The draft id is minted on the device. Sharing upserts the draft under
+        the caller's ownership; a draft id owned by someone else returns 404
+        (not 403, so the response does not confirm that it exists).
+
+        Broadcasts `draft_shared` to the room.
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShareDraftRequest' }
+      responses:
+        '201':
+          description: Shared
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sharedDraft: { $ref: '#/components/schemas/SharedDraft' }
+                  draft: { $ref: '#/components/schemas/Draft' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/NotAMember' }
+        '404':
+          description: Room not found, or the draft belongs to another user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /api/v1/drafts:
+    get:
+      tags: [Drafts]
+      summary: List the caller's registered drafts
+      responses:
+        '200':
+          description: Drafts owned by the caller
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  drafts:
+                    type: array
+                    items: { $ref: '#/components/schemas/Draft' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/drafts/{draftId}:
+    delete:
+      tags: [Drafts]
+      summary: Delete a draft
+      parameters:
+        - name: draftId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Deleted }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404':
+          description: Not found, or owned by another user
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  /api/v1/rooms/{roomId}/spin/start:
+    post:
+      tags: [Spin]
+      summary: Start the spin wheel
+      description: |
+        **Authorization:** room `OWNER` or `ADMIN` only.
+
+        **Preconditions**, all enforced server-side inside one transaction:
+
+        * 3 to 20 eligible participants (every `ACTIVE` member)
+        * no spin already `RUNNING` in this room
+
+        The roster is **frozen at start time**. A user who joins mid-spin is a
+        spectator, not a late entrant -- otherwise the 3-20 rule would be
+        unverifiable at any single moment.
+
+        One participant is eliminated every 5 seconds until one remains, who is
+        the winner. Elimination is a uniform random draw over the remaining
+        players using a cryptographic RNG, and each draw is persisted before it
+        is broadcast.
+
+        **Concurrency:** the room row is locked for the duration, and a partial
+        unique index on `spins(room_id) WHERE status='RUNNING'` enforces the
+        one-active-spin rule at the storage layer. Five simultaneous requests
+        produce exactly one 201 and four 409s.
+
+        `Idempotency-Key` is required.
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '201':
+          description: Spin started (or a replay of an identical start)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  spin: { $ref: '#/components/schemas/Spin' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Not a member, or not an owner/admin
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              examples:
+                notAdmin:
+                  value:
+                    error:
+                      code: NOT_ROOM_ADMIN
+                      message: Only the room owner or an admin can perform this action.
+        '409':
+          description: A spin is already running, or the participant count is out of range
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+              examples:
+                alreadyRunning:
+                  value:
+                    error:
+                      code: SPIN_ALREADY_RUNNING
+                      message: A spin is already running in this room.
+                tooFew:
+                  value:
+                    error:
+                      code: NOT_ENOUGH_PARTICIPANTS
+                      message: A spin needs at least 3 eligible participants; this room has 2.
+                      details: { found: 2, required: 3 }
+                tooMany:
+                  value:
+                    error:
+                      code: TOO_MANY_PARTICIPANTS
+                      message: A spin allows at most 20 eligible participants; this room has 21.
+                      details: { found: 21, allowed: 20 }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /api/v1/rooms/{roomId}/spin:
+    get:
+      tags: [Spin]
+      summary: Spin state or final result
+      description: Returns the active spin, or the most recent finished one.
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+      responses:
+        '200':
+          description: Spin state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  spin: { $ref: '#/components/schemas/Spin' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/NotAMember' }
+        '404':
+          description: This room has never had a spin
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    RoomId:
+      name: roomId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: Client-generated UUID. A replay returns the stored response.
+      schema: { type: string, maxLength: 200 }
+
+  responses:
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Request validation failed.
+              details:
+                issues:
+                  - path: durationMs
+                    message: Number must be greater than 0
+                    code: too_small
+
+    Unauthorized:
+      description: Missing, malformed or expired token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: INVALID_TOKEN
+              message: The session token is missing, malformed or expired.
+
+    NotAMember:
+      description: The caller is not an active member of this room
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+          example:
+            error:
+              code: NOT_A_MEMBER
+              message: You are not an active member of this room.
+
+    RoomNotFound:
+      description: Room not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+    IdempotencyConflict:
+      description: The Idempotency-Key was reused with a different body
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+
+  schemas:
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable identifier. Branch on this, not on the message.
+              enum:
+                - VALIDATION_ERROR
+                - INVALID_REQUEST
+                - UNAUTHENTICATED
+                - INVALID_TOKEN
+                - NOT_A_MEMBER
+                - NOT_ROOM_ADMIN
+                - ROOM_NOT_FOUND
+                - DRAFT_NOT_FOUND
+                - SPIN_NOT_FOUND
+                - NOT_FOUND
+                - SPIN_ALREADY_RUNNING
+                - SPIN_NOT_RUNNING
+                - NOT_ENOUGH_PARTICIPANTS
+                - TOO_MANY_PARTICIPANTS
+                - ROOM_CLOSED
+                - IDEMPOTENCY_KEY_REUSED
+                - CONFLICT
+                - RATE_LIMITED
+                - INTERNAL_ERROR
+                - NOT_READY
+            message:
+              type: string
+              description: Safe to display. Never contains a stack trace or SQL.
+            details:
+              type: object
+              additionalProperties: true
+        requestId:
+          type: string
+          description: Correlates the response with a backend log line.
+
+    User:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+
+    Room:
+      type: object
+      properties:
+        roomId: { type: string, format: uuid }
+        code:
+          type: string
+          minLength: 6
+          maxLength: 6
+          description: Short join code. Alphabet excludes I, L, O, U and 0/1 to avoid misreads.
+          example: 7K4MPQ
+        name: { type: string }
+        ownerId: { type: string, format: uuid }
+        status: { type: string, enum: [OPEN, CLOSED] }
+        createdAt: { type: string, format: date-time }
+
+    Participant:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        role: { type: string, enum: [OWNER, ADMIN, MEMBER] }
+        connectionStatus:
+          type: string
+          enum: [CONNECTED, DISCONNECTED]
+          description: |
+            Socket presence, NOT membership. A DISCONNECTED participant is still
+            in the room and still eligible -- they are within the 15-second
+            grace period. Only when it expires do they leave.
+        joinedAt: { type: string, format: date-time }
+
+    Draft:
+      type: object
+      properties:
+        draftId: { type: string, format: uuid }
+        name: { type: string, maxLength: 80 }
+        durationMs: { type: integer, minimum: 1, maximum: 3600000 }
+        effect: { type: string, enum: [NONE, ECHO, REVERB, PITCH_SHIFT] }
+        hostedFileUrl:
+          type: string
+          nullable: true
+          description: Always null from the Android client -- audio stays on the device.
+        ownerId: { type: string, format: uuid }
+        createdAt: { type: string, format: date-time }
+
+    SharedDraft:
+      type: object
+      properties:
+        draft: { $ref: '#/components/schemas/Draft' }
+        sharedBy: { type: string, format: uuid }
+        sharedAt: { type: string, format: date-time }
+
+    ShareDraftRequest:
+      type: object
+      required: [draftId, name, durationMs]
+      properties:
+        draftId: { type: string, format: uuid, description: Minted on the device. }
+        name: { type: string, minLength: 1, maxLength: 80 }
+        durationMs: { type: integer, minimum: 1, maximum: 3600000 }
+        effect: { type: string, enum: [NONE, ECHO, REVERB, PITCH_SHIFT], default: NONE }
+        hostedFileUrl: { type: string, format: uri, nullable: true }
+
+    SpinParticipant:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        displayName: { type: string }
+        status:
+          type: string
+          enum: [ACTIVE, ELIMINATED, LEFT, WINNER]
+          description: |
+            `ELIMINATED` was drawn by the wheel. `LEFT` forfeited by leaving the
+            room mid-spin. The distinction is preserved so the UI can word it
+            correctly.
+        eliminationOrder:
+          type: integer
+          nullable: true
+          description: 1-based and dense. Covers both draws and forfeits.
+        eliminatedAt: { type: string, format: date-time, nullable: true }
+
+    Spin:
+      type: object
+      properties:
+        spinId: { type: string, format: uuid }
+        roomId: { type: string, format: uuid }
+        status: { type: string, enum: [WAITING, RUNNING, COMPLETED, ABORTED] }
+        startedBy: { type: string, format: uuid, nullable: true }
+        startedAt: { type: string, format: date-time, nullable: true }
+        completedAt: { type: string, format: date-time, nullable: true }
+        winner:
+          allOf: [{ $ref: '#/components/schemas/User' }]
+          nullable: true
+        abortReason:
+          type: string
+          nullable: true
+          enum: [NO_PARTICIPANTS, ROOM_CLOSED, MANUAL, null]
+        eliminationIntervalMs: { type: integer, example: 5000 }
+        nextEliminationAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: |
+            The authoritative deadline, persisted on the row. A restarted server
+            resumes from this on its first scheduler tick -- there is no separate
+            recovery routine.
+        participants:
+          type: array
+          items: { $ref: '#/components/schemas/SpinParticipant' }
+        remainingParticipants:
+          type: array
+          description: Still able to win -- ACTIVE now, or the declared WINNER.
+          items: { $ref: '#/components/schemas/SpinParticipant' }
+        eliminatedParticipants:
+          type: array
+          description: Ordered by eliminationOrder.
+          items: { $ref: '#/components/schemas/SpinParticipant' }
+
+    RoomState:
+      type: object
+      description: |
+        The authoritative snapshot. Also the payload of the `room_state`
+        WebSocket event -- both are produced by the same builder, so REST and
+        real-time cannot drift apart.
+      properties:
+        room: { $ref: '#/components/schemas/Room' }
+        participants:
+          type: array
+          items: { $ref: '#/components/schemas/Participant' }
+        sharedDraft:
+          allOf: [{ $ref: '#/components/schemas/SharedDraft' }]
+          nullable: true
+        activeSpin:
+          allOf: [{ $ref: '#/components/schemas/Spin' }]
+          nullable: true
+        lastSpin:
+          allOf: [{ $ref: '#/components/schemas/Spin' }]
+          nullable: true
+          description: The most recent finished spin, so a late client can render the result.

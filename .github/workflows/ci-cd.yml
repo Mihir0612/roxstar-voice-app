@@ -1,0 +1,220 @@
+name: CI/CD
+
+# Pipeline contract (D28):
+#   install -> typecheck -> migrate -> test -> build image -> deploy -> verify
+#
+# Two rules are absolute:
+#   1. Failing tests never deploy.
+#   2. A deploy that does not pass post-deploy verification is rolled back to
+#      the previous revision automatically.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '22'
+  SERVICE_NAME: roxstar-backend
+  REGION: ${{ vars.GCP_REGION || 'europe-west1' }}
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Tests run against a real Postgres, not a mock. The spin engine depends on
+  # partial unique indexes, row locks and SKIP LOCKED -- none of which a fake
+  # would reproduce, so a passing mock-based suite would prove nothing.
+  # ---------------------------------------------------------------------------
+  test:
+    name: Typecheck and test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: roxstar
+          POSTGRES_PASSWORD: roxstar_ci
+          POSTGRES_DB: roxstar_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U roxstar -d roxstar_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgres://roxstar:roxstar_ci@localhost:5432/roxstar_test
+      # CI-only value. Production reads AUTH_SECRET from Secret Manager (D29).
+      AUTH_SECRET: ci-only-secret-value-min-16-chars
+      MIGRATIONS_DIR: ${{ github.workspace }}/database/migrations
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: backend
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: backend
+        run: npm run typecheck
+
+      - name: Run migrations
+        working-directory: backend
+        run: npm run migrate
+
+      - name: Run test suite
+        working-directory: backend
+        run: npm test
+
+      # Proves the image actually builds on every PR, so a broken Dockerfile is
+      # caught at review time rather than at deploy time.
+      - name: Build Docker image
+        run: docker build -t ${{ env.SERVICE_NAME }}:ci .
+
+      # The same out-of-process verification used against production, run here
+      # against the freshly built image. This is what caught the empty-JSON-body
+      # bug that in-process tests could not see.
+      - name: End-to-end verify the built image
+        run: |
+          docker network create roxstar-ci
+          docker run -d --name ci-postgres --network roxstar-ci \
+            -e POSTGRES_USER=roxstar -e POSTGRES_PASSWORD=roxstar_ci -e POSTGRES_DB=roxstar \
+            postgres:16-alpine
+          for i in $(seq 1 30); do
+            docker exec ci-postgres pg_isready -U roxstar -d roxstar && break
+            sleep 2
+          done
+          docker run -d --name ci-backend --network roxstar-ci -p 8080:8080 \
+            -e DATABASE_URL=postgres://roxstar:roxstar_ci@ci-postgres:5432/roxstar \
+            -e AUTH_SECRET=ci-only-secret-value-min-16-chars \
+            -e SPIN_ELIMINATION_INTERVAL_MS=1000 \
+            ${{ env.SERVICE_NAME }}:ci
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8080/ready && break
+            sleep 2
+          done
+          cd tests && npm ci && SPIN_ELIMINATION_INTERVAL_MS=1000 node e2e/verify.mjs http://localhost:8080
+
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs ci-backend || true
+
+  # ---------------------------------------------------------------------------
+  # Deploy only from main, and only after `test` succeeded.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to Cloud Run
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      # Workload Identity Federation: no long-lived service-account JSON key is
+      # stored in GitHub (D29).
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Record the currently serving revision
+        id: current
+        run: |
+          # Captured BEFORE the deploy so rollback has a concrete target.
+          REVISION=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --format 'value(status.traffic[0].revisionName)' 2>/dev/null || echo '')
+          echo "revision=$REVISION" >> "$GITHUB_OUTPUT"
+          echo "Currently serving: ${REVISION:-<none>}"
+
+      - name: Build and push image
+        env:
+          IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/roxstar/${{ env.SERVICE_NAME }}
+        run: |
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+          # Tagged with the commit SHA, never only :latest -- a rollback needs
+          # an immutable reference to go back to.
+          docker build -t "$IMAGE:${{ github.sha }}" -t "$IMAGE:latest" .
+          docker push "$IMAGE:${{ github.sha }}"
+          docker push "$IMAGE:latest"
+
+      - name: Deploy revision
+        env:
+          IMAGE: ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/roxstar/${{ env.SERVICE_NAME }}
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image "$IMAGE:${{ github.sha }}" \
+            --region ${{ env.REGION }} \
+            --platform managed \
+            --allow-unauthenticated \
+            --port 8080 \
+            --session-affinity \
+            --timeout 3600 \
+            --min-instances 1 \
+            --max-instances 1 \
+            --cpu 1 --memory 512Mi \
+            --add-cloudsql-instances "${{ secrets.GCP_SQL_INSTANCE }}" \
+            --set-env-vars "NODE_ENV=production,DATABASE_SSL=false,LOG_LEVEL=info,CORS_ALLOWED_ORIGINS=" \
+            --set-secrets "DATABASE_URL=roxstar-database-url:latest,AUTH_SECRET=roxstar-auth-secret:latest"
+
+      # Uploading is not deploying. The pipeline only calls this a success once
+      # the live URL actually answers.
+      - name: Verify the live deployment
+        id: verify
+        run: |
+          URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} --format 'value(status.url)')
+          echo "url=$URL" >> "$GITHUB_OUTPUT"
+          echo "Verifying $URL"
+
+          for i in $(seq 1 30); do
+            curl -sf "$URL/health" >/dev/null && break
+            echo "  waiting for /health ($i/30)"
+            sleep 5
+          done
+
+          curl -sf "$URL/health" | tee /dev/stderr | grep -q '"status":"ok"'
+          curl -sf "$URL/ready"  | tee /dev/stderr | grep -q '"status":"ready"'
+
+          # Full functional verification over real HTTP and WSS, not just a
+          # health ping: rooms, events, a complete spin, persistence, reconnect.
+          cd tests && npm ci && node e2e/verify.mjs "$URL"
+
+      - name: Roll back on failed verification
+        if: failure() && steps.current.outputs.revision != ''
+        run: |
+          echo "Verification failed. Rolling traffic back to ${{ steps.current.outputs.revision }}"
+          gcloud run services update-traffic ${{ env.SERVICE_NAME }} \
+            --region ${{ env.REGION }} \
+            --to-revisions "${{ steps.current.outputs.revision }}=100"
+          echo "Rolled back."
+          exit 1
+
+      - name: Summary
+        if: success()
+        run: |
+          {
+            echo "### Deployed and verified"
+            echo ""
+            echo "- Endpoint: ${{ steps.verify.outputs.url }}"
+            echo "- Image tag: \`${{ github.sha }}\`"
+            echo "- Previous revision (rollback target): \`${{ steps.current.outputs.revision }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

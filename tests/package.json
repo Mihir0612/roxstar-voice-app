@@ -1,0 +1,14 @@
+{
+  "name": "roxstar-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Out-of-process end-to-end verification. Run against any deployment: local docker-compose or the live Cloud Run URL.",
+  "scripts": {
+    "verify": "node e2e/verify.mjs",
+    "verify:local": "node e2e/verify.mjs http://localhost:8080"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.8.1"
+  }
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Roxstar</string>
+    <string name="mic_permission_rationale">
+        Roxstar records your voice locally to create drafts. Recordings stay on this device.
+    </string>
+</resources>

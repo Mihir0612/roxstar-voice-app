@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Secrets (D29) -- nothing here ever reaches the repository.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+google-credentials*.json
+service-account*.json
+
+# Terraform: state can contain secret values in plaintext.
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+terraform.tfvars
+*.auto.tfvars
+
+# Android
+android-app/.gradle/
+android-app/local.properties
+android-app/.cxx/
+android-app/app/build/
+android-app/build/
+*.apk
+*.aab
+!app-release-notes.md
+
+# Native
+native-audio/oboe/build/
+*.o
+*.so
+!**/jniLibs/**/*.so
+
+# Test and coverage
+coverage/
+.nyc_output/
+test-results/
+
+# Editors and OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+
+# Logs
+*.log
+npm-debug.log*

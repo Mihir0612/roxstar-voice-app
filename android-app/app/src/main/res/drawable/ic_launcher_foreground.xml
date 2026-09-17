@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Stylised microphone. Vector rather than PNG so one file covers every density. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Capsule -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,30 m-9,0 a9,9 0 1,0 18,0 l0,18 a9,9 0 1,1 -18,0 z" />
+
+    <!-- Cradle -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M39,50 A15,15 0 0 0 69,50" />
+
+    <!-- Stem and base -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M54,65 L54,74" />
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:pathData="M45,74 L63,74" />
+</vector>

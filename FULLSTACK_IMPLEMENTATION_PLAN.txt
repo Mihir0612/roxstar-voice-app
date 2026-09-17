@@ -1,0 +1,529 @@
+Role: Senior Full Stack Developer — 15+ years experience
+Source: TECH_MANAGER_REQUIREMENTS.md, FRONTEND_IMPLEMENTATION_PLAN.md, BACKEND_IMPLEMENTATION_PLAN.md, Roxstar assessment PDF, architecture diagram
+Scope: Audit + Integration — DO NOT INTEGRATE YET
+Status: BLOCKED — CONTRACTS NOT APPROVED
+
+COMMUNICATION PROTOCOL REPORT
+ANALYSIS
+I received three documents:
+
+TECH_MANAGER_REQUIREMENTS.md — status CHANGES REQUIRED / NEEDS CLARIFICATION.
+
+FRONTEND_IMPLEMENTATION_PLAN.md — status CHANGES REQUIRED.
+
+BACKEND_IMPLEMENTATION_PLAN.md — status CHANGES REQUIRED / NEEDS CLARIFICATION.
+
+The workflow gate requires:
+
+text
+FRONTEND PLAN + BACKEND PLAN
+            ↓
+        FULL STACK AUDIT
+            ↓
+      CONTRACT COMPARISON
+            ↓
+      INTEGRATION DECISION
+            ↓
+            INTEGRATE
+My first responsibility is not to integrate. My first responsibility is to audit both plans against the Tech Manager requirements and against each other.
+
+Both plans are explicitly gated as not approved. No production code exists yet. Therefore:
+
+Integration (Step 5) cannot proceed.
+
+End-to-end test (Step 6) cannot proceed.
+
+APK build (Step 7) cannot proceed.
+
+I will produce the three required audit artifacts and the integration decision.
+
+FILE 1 — FRONTEND_AUDIT.md
+markdown
+# FRONTEND_AUDIT.md
+
+**Auditor:** Senior Full Stack Integration Developer
+**Target:** FRONTEND_IMPLEMENTATION_PLAN.md
+**Date:** (audit performed at plan stage)
+**Verdict:** CONDITIONAL — BLOCKED pending approved backend contract
+
+## 1. Requirements Coverage
+
+| Tech Manager Requirement | Frontend Plan Coverage | Verdict |
+|---|---|---|
+| Android + Oboe local recording | Covered (§1, §8) | OK |
+| Start / Stop / Cancel | Covered (§4.1) | OK |
+| At least one effect (Echo/Reverb/Pitch) | Covered (§4.1) | OK |
+| Local Draft save/list/play/delete | Covered (§4.1, §5 Draft) | OK |
+| Create / Join / Leave / Get Room State | Covered (§4.2, §6) | OK |
+| Participant list + Draft sharing | Covered (§4.2) | OK |
+| Mandatory events (7) | Covered (§7) | OK |
+| Reconnect + authoritative sync | Covered (§5 Connection, §7 room_state) | OK |
+| Spin UI 3–20 eligible, owner/admin start | Covered (§4.3) | OK |
+| Backend authoritative | Explicitly respected (§6, §7) | OK |
+| Error handling (permission/network/ws/server/audio) | Covered (§9) | OK |
+| Out-of-scope respected (no live audio) | Covered (§8) | OK |
+
+## 2. Architecture Boundary Check
+
+- UI → Client State → Services (REST / WebSocket / Storage / Oboe) — **correct**.
+- No audio over WebSocket — **respected**.
+- Client never emits authoritative events — **respected**.
+- Client never locally decides elimination/winner — **respected**.
+
+## 3. API Usage Audit
+
+The frontend plan **does not yet define**:
+
+- Exact HTTP method per operation.
+- Exact path per operation.
+- Exact request/response schemas.
+- Exact auth header format.
+- Exact error status → UI mapping.
+
+The plan correctly **flags** these as `BLOCKED / NEEDS CLARIFICATION`.
+
+**Finding:** Cannot verify API usage against a backend contract that does not yet exist.
+
+## 4. WebSocket Event Audit
+
+The plan defines handler intent for all 7 events, but:
+
+- No payload schema per event.
+- No ack/timeout semantics.
+- No defined disconnect grace period behaviour.
+- No defined deduplication mechanism (`eventId` not yet referenced by frontend).
+
+**Finding:** Frontend handler logic cannot be implemented until payload shapes are approved.
+
+## 5. State Management Audit
+
+State categories are well-separated (Room, Participant, Draft, Spin, Connection, Audio).
+
+**Gaps:**
+
+- No explicit rule for what happens to `Spin` state when `room_state` arrives mid-spin — plan says "reconcile" but does not define precedence for in-flight local UI animations.
+- No explicit rule for what happens when reconnect happens *during* an active elimination tick.
+
+## 6. Error Handling Audit
+
+Frontend covers all required error classes:
+
+- Permission
+- Network
+- WebSocket disconnect/reconnect
+- Invalid room
+- Invalid operation
+- Server error
+- Audio failure
+
+**Gaps:**
+
+- Does not define retry policy for idempotent vs non-idempotent REST calls (mentions the principle, but not the mechanism).
+- Does not define backoff strategy for reconnect.
+
+## 7. Security Audit (client side)
+
+- No hardcoded secrets — stated.
+- No trust in local state as authoritative — stated.
+- Auth token storage not yet specified.
+
+**Finding:** Client auth token handling must be defined once auth mechanism is approved.
+
+## 8. Test Strategy Audit
+
+- Unit + integration stated as REQUIRED.
+- No specific coverage targets.
+- No defined mock/fake strategy for REST/WebSocket during unit tests.
+
+## 9. Frontend-Side Blockers (carried from plan)
+
+- UI technology not approved.
+- Language not approved.
+- State library not approved.
+- REST client not approved.
+- Socket.IO client not approved.
+- Local storage mechanism not approved.
+- All backend contract items not approved.
+
+## 10. Frontend Audit Verdict
+
+**STATUS: CONDITIONAL PASS (plan quality) — BLOCKED FOR IMPLEMENTATION**
+
+The plan is structurally sound and respects all architectural boundaries. It cannot move to implementation until the backend contract is approved and the missing client-side technology decisions are made by the Tech Manager.
+FILE 2 — BACKEND_AUDIT.md
+markdown
+# BACKEND_AUDIT.md
+
+**Auditor:** Senior Full Stack Integration Developer
+**Target:** BACKEND_IMPLEMENTATION_PLAN.md
+**Verdict:** CONDITIONAL — BLOCKED pending Tech Manager decisions
+
+## 1. Requirements Coverage
+
+| Tech Manager Requirement | Backend Plan Coverage | Verdict |
+|---|---|---|
+| Node.js authoritative backend | Covered (§1, §3) | OK |
+| REST for room/draft/spin/health | Covered (§4) | OK |
+| WebSocket/Socket.IO for events | Covered (§5) | OK |
+| 7 mandatory events | Covered (§5) | OK |
+| Spin rules (3–20, one active, 5s, last wins, persisted) | Covered (§6) | OK |
+| Reconnect + authoritative sync | Covered (§5 room_state, §7) | OK |
+| Persistence entities (User, Room, RoomMember, Draft, Spin, SpinParticipant, SpinEvent) | Covered (§8) | OK |
+| Security (validation, authz, rate limit, secrets, error safety, CORS) | Covered (§9) | OK |
+| Testing (unit/integration/ws/spin/concurrency/edge) | Covered (§10) | OK |
+| Docker | Referenced | OK |
+| Out-of-scope respected | Yes | OK |
+
+## 2. Architecture Boundary Check
+
+- REST → Controllers → Services → Repositories → DB — **correct layering**.
+- Socket.IO → handlers → Services → Repositories → DB — **correct**.
+- WebSocket handlers do not trust client state — **correct**.
+- Events emitted only after successful persistence — **correct**.
+- No audio carried over WebSocket — **correct**.
+
+## 3. API Contract Audit
+
+The backend plan **proposes** but does not approve:
+
+- `/api/v1` base path.
+- Bearer token auth.
+- Error envelope shape.
+- Per-operation methods, paths, schemas, error codes.
+
+**Gaps that block the frontend:**
+
+1. Draft sharing: The backend flags `hostedFileUrl` as optional and calls the whole file-transfer contract `NEEDS CLARIFICATION`. This is a **hard blocker** because:
+   - Frontend Draft lives only as `localFileReference`.
+   - Backend has not defined whether audio bytes are ever transmitted.
+   - Live audio streaming is out of scope, but *file upload* is not explicitly in scope either.
+   - Until this is decided, the `draft_shared` event payload cannot be defined.
+
+2. Authentication: PDF does not define it; backend plan marks it `NEEDS CLARIFICATION`. Neither REST nor Socket.IO auth can be implemented.
+
+3. Idempotency: `Idempotency-Key` is recommended but the exact header name, key derivation, storage/expiry and response-replay rule are not specified.
+
+## 4. WebSocket Architecture Audit
+
+Proposed namespace: `/rooms`.
+Proposed handshake: token — but exact handshake contract is `NEEDS CLARIFICATION`.
+
+**Gaps:**
+
+- No defined reconnect/backoff contract exposed to client.
+- No defined disconnect grace period value.
+- No defined `eventId` generation strategy (UUID? monotonic?).
+- No defined behavior for events arriving out of order at the client.
+
+## 5. Spin Engine Audit
+
+Strengths:
+
+- Uses persisted `nextEliminationAt` — good for recovery.
+- Uses row-level lock per elimination — good for concurrency.
+- Persist-before-broadcast — good for consistency.
+
+Gaps:
+
+- Winner/elimination selection rule is not defined (random? ordered? seeded?).
+- User-leaves-during-spin rule — `NEEDS CLARIFICATION`.
+- Admin-disconnect-during-spin rule — `NEEDS CLARIFICATION`.
+- Server-restart recovery rule — `NEEDS CLARIFICATION`.
+- Delayed-timer catch-up policy — `NEEDS CLARIFICATION`.
+
+Without these, the frontend cannot render deterministic UI behavior for those scenarios.
+
+## 6. Database Audit
+
+- Entity list matches Tech Manager requirements.
+- Partial unique index on `Spin(roomId) WHERE status='RUNNING'` correctly enforces "one active spin."
+- Unique `(roomId, userId)` correctly handles duplicate joins.
+- Transactions specified for critical operations.
+
+Gaps:
+
+- Database technology not approved (PostgreSQL recommended but not approved).
+- No migration tooling decided.
+- No retention/cleanup policy for `SpinEvent` (audit table growth).
+
+## 7. Security Audit
+
+Backend plan covers all required areas with reasons.
+
+Gaps:
+
+- Rate-limit mechanism not specified.
+- CORS policy not specified.
+- Token format / lifetime not specified.
+- Anti-abuse on WebSocket joins not specified.
+
+## 8. Testing Plan Audit
+
+- Categories are correct.
+- No coverage thresholds defined.
+- No specific tooling approved (Jest/Vitest mentioned as recommendation).
+- No load-test plan for 20-participant spin with 5-second tick.
+
+## 9. Backend Audit Verdict
+
+**STATUS: CONDITIONAL PASS (plan quality) — BLOCKED FOR IMPLEMENTATION**
+
+The plan is architecturally sound and matches the Tech Manager requirements. It cannot move to implementation until the Tech Manager resolves the unresolved decisions listed in §16 of `TECH_MANAGER_REQUIREMENTS.md`.
+FILE 3 — INTEGRATION_CONTRACT.md
+markdown
+# INTEGRATION_CONTRACT.md
+
+**Purpose:** Compare the Frontend plan and Backend plan side-by-side and identify every mismatch, gap and blocked interface.
+**Auditor:** Senior Full Stack Integration Developer
+**Verdict:** `BLOCKED — NO APPROVED CONTRACT EXISTS TO INTEGRATE AGAINST`
+
+## 1. Contract Comparison Matrix
+
+| # | Interface | Frontend Expectation | Backend Proposal | Match? | Action |
+|---|---|---|---|---|---|
+| 1 | REST base path | Unspecified (blocked) | `/api/v1` (proposed) | NO | Tech Manager approval required |
+| 2 | Auth header | "approved identity/auth" (blocked) | `Authorization: Bearer <token>` (proposed) | NO | Auth mechanism undecided |
+| 3 | Error envelope | Not defined | `{ error: { code, message, details } }` (proposed) | NO | Frontend must consume same shape |
+| 4 | Create Room path | Unspecified | `POST /api/v1/rooms` | NO | Approval required |
+| 5 | Join Room path | Unspecified | `POST /api/v1/rooms/:roomId/join` | NO | Approval required |
+| 6 | Leave Room path | Unspecified | `POST /api/v1/rooms/:roomId/leave` | NO | Approval required |
+| 7 | Get Room State path | Unspecified | `GET /api/v1/rooms/:roomId/state` | NO | Approval required |
+| 8 | Share Draft path + payload | "Send approved request" — assumes contract exists | `POST .../drafts/share` with `hostedFileUrl` optional | NO | **Fundamental mismatch** |
+| 9 | Start Spin path | Unspecified | `POST .../spin/start` | NO | Approval required |
+| 10 | Get Spin path | Unspecified | `GET .../spin` | NO | Approval required |
+| 11 | Health / Ready | "do not poll" | `/health`, `/ready` | PARTIAL | Client policy OK; endpoint shape unapproved |
+| 12 | Socket.IO namespace | Not specified | `/rooms` | NO | Approval required |
+| 13 | Socket.IO handshake auth | "approved identity/auth" | token in handshake (undefined) | NO | Approval required |
+| 14 | `user_joined` payload | Not defined | `{ roomId, participant, eventId, occurredAt }` | NO | Payload schema unapproved |
+| 15 | `user_left` payload | Not defined | `{ roomId, userId, eventId, occurredAt }` | NO | Payload schema unapproved |
+| 16 | `draft_shared` payload | Not defined | `{ roomId, draft, sharedBy, eventId, occurredAt }` | NO | Payload schema unapproved |
+| 17 | `spin_started` payload | Not defined | `{ roomId, spinId, status, eligibleParticipants, startedAt, eventId }` | NO | Payload schema unapproved |
+| 18 | `user_eliminated` payload | Not defined | `{ roomId, spinId, eliminatedUserId, remainingParticipants, eliminatedAt, eventId }` | NO | Payload schema unapproved |
+| 19 | `winner_announced` payload | Not defined | `{ roomId, spinId, winnerUserId, completedAt, eventId }` | NO | Payload schema unapproved |
+| 20 | `room_state` payload | "authoritative room state" | Undefined shape | NO | Payload schema unapproved |
+| 21 | `eventId` dedupe | Not used by frontend | Required by backend | NO | Frontend must adopt |
+| 22 | Idempotency key transport | Not defined | `Idempotency-Key` header (recommended) | NO | Must be formalized |
+| 23 | Reconnect flow | Client drives reconnect, then `room_state` | Server emits `room_state` on reconnect | PARTIAL | Sequencing not agreed |
+| 24 | Disconnect grace period | Not defined | `NEEDS CLARIFICATION` | NO | Must be decided |
+| 25 | User leaves during spin | UI must reflect it | Rule `NEEDS CLARIFICATION` | NO | **Blocking** |
+| 26 | Admin disconnects during spin | UI must reflect it | Rule `NEEDS CLARIFICATION` | NO | **Blocking** |
+| 27 | Server restart during spin | UI must recover | Rule `NEEDS CLARIFICATION` | NO | **Blocking** |
+| 28 | Delayed timer behavior | UI must not desync | Rule `NEEDS CLARIFICATION` | NO | **Blocking** |
+| 29 | Draft audio transport | Draft stored locally | `hostedFileUrl` optional | **CONFLICT** | **Hard blocker** |
+| 30 | Winner selection rule | Client never decides | Not defined | NO | Backend must define |
+
+## 2. Critical Mismatches (Ordered by Severity)
+
+### C1. Draft Sharing Contract (Severity: CRITICAL)
+
+- Frontend: Draft exists as `localFileReference` on the device.
+- Backend: `Share Draft` accepts `hostedFileUrl` as optional.
+- PDF: Live audio streaming is out of scope. **File upload is not explicitly addressed.**
+- Result: Frontend and Backend do **not** agree on what a "shared Draft" actually contains.
+- Required decision (Tech Manager): Is Draft sharing metadata-only, or does it include audio file upload?
+
+### C2. Authentication Mechanism (Severity: CRITICAL)
+
+- Frontend requires "approved identity/auth".
+- Backend plan marks auth as `NEEDS CLARIFICATION`.
+- PDF does not define login.
+- Result: Neither REST nor WebSocket authentication can be implemented.
+- Required decision (Tech Manager): choose auth model (e.g. anonymous session, device-bound token, or provided credentials).
+
+### C3. Spin Edge-Case Business Rules (Severity: CRITICAL)
+
+Unresolved on backend:
+
+- User leaves during spin.
+- Admin disconnects during spin.
+- Server restart during spin.
+- Delayed-timer catch-up.
+
+Frontend cannot render these states until backend rules are defined.
+
+### C4. Event Payload Schemas Not Frozen (Severity: HIGH)
+
+Backend proposes payloads but they are **not approved**. Frontend handlers cannot be written against unstable schemas.
+
+### C5. Idempotency Transport Not Formalized (Severity: HIGH)
+
+Frontend does not mention `Idempotency-Key`. Backend recommends it. Contract must be explicit, including key derivation and server replay behavior.
+
+### C6. Reconnect Sequencing (Severity: MEDIUM)
+
+Frontend: `DISCONNECTED → RECONNECTING → CONNECTED → room_state`.
+Backend: `room_state` emitted on subscription.
+Question: does the client re-subscribe, or does the server push on reconnect? Must be sequenced explicitly.
+
+### C7. `eventId` Deduplication Adoption (Severity: MEDIUM)
+
+Backend requires `eventId`. Frontend plan does not yet reference it. Frontend must adopt `eventId`-based dedupe.
+
+### C8. Disconnect Grace Period Value (Severity: MEDIUM)
+
+Backend `user_left` may fire on "detected disconnect" but grace period is undefined. Frontend UI must know when a user is "gone" vs. "reconnecting."
+
+## 3. Gaps Against Tech Manager Requirements
+
+| TM Requirement | Where Covered | Status |
+|---|---|---|
+| At least 3 edge cases demonstrated | Not committed by either plan | MISSING |
+| Required documentation (diagrams) | Not yet in either plan | MISSING |
+| Docker packaging | Backend referenced, no Dockerfile plan detail | PARTIAL |
+| CI/CD | Not planned | MISSING |
+| Cloud deployment | Not planned | MISSING |
+| Demo recording | Not planned | MISSING |
+
+## 4. Non-Mismatches (Confirmed Aligned)
+
+- Both plans agree backend is authoritative.
+- Both plans agree no live audio over WebSocket.
+- Both plans agree client never emits authoritative events.
+- Both plans agree reconnect must recover via `room_state`.
+- Both plans agree 3–20 eligible users, 5-second eliminations, one active spin.
+- Both plans agree out-of-scope items remain out of scope.
+
+## 5. Integration Decision
+
+**STATUS: BLOCKED — CANNOT INTEGRATE**
+
+Per the workflow rule:
+
+> If the change alters the original requirement: STOP → Discuss with Tech Manager.
+
+The mismatches above are not integration bugs — they are **unresolved architecture decisions**. My authority as Full Stack Integration Developer does **not** extend to inventing these. Assigning them to Frontend or Backend would violate global rule 6 and the "never silently change requirements" rule.
+
+## 6. Required Escalation
+
+Escalate to Tech Manager with the following decisions required before integration can begin:
+
+1. Draft sharing: metadata-only or file upload?
+2. Authentication mechanism.
+3. Spin edge-case rules (leave / admin disconnect / server restart / delayed timer).
+4. Approval of the REST + WebSocket contract document.
+5. Approval of database technology.
+6. Approval of client technology stack.
+7. Idempotency-key transport standard.
+8. Reconnect sequencing contract.
+9. `eventId` format and dedupe obligation on both sides.
+10. Disconnect grace period value.
+COMMUNICATION PROTOCOL REPORT
+REQUIREMENTS
+Audit Frontend plan and Backend plan against each other and against Tech Manager requirements.
+
+Produce FRONTEND_AUDIT.md, BACKEND_AUDIT.md, INTEGRATION_CONTRACT.md.
+
+Do not integrate until contracts are compatible.
+
+Escalate requirement-affecting mismatches to Tech Manager.
+
+ASSUMPTIONS
+Both plans accurately represent the intent of their authors.
+
+No production code exists yet (both plans explicitly state "PLAN ONLY").
+
+The Tech Manager will not approve partial contracts.
+
+The PDF is the source of truth and remains unchanged.
+
+DECISIONS
+Do not integrate. Contracts are not approved and do not match.
+
+Do not assign fixes to Frontend or Backend unilaterally. Every mismatch is caused by an unresolved architecture decision, not by a developer error.
+
+Escalate all 10 required decisions to Tech Manager.
+
+Do not build APK. APK requires working backend integration, which requires approved contracts.
+
+Do not run E2E tests. No runnable system exists.
+
+DEPENDENCIES
+From Tech Manager:
+
+Approval of unresolved architecture decisions (10 items listed in INTEGRATION_CONTRACT.md §6).
+
+Approval of Draft-sharing contract.
+
+Approval of auth mechanism.
+
+Approval of database choice.
+
+Approval of client technology stack.
+
+Approval of spin edge-case rules.
+
+From Senior Frontend Developer:
+
+Updated plan after Tech Manager decisions.
+
+Adoption of eventId dedupe.
+
+Adoption of Idempotency-Key transport.
+
+From Senior Backend Developer:
+
+Frozen REST + WebSocket contract document.
+
+Defined winner/elimination selection rule.
+
+Defined disconnect grace period.
+
+From DevOps:
+
+Not yet unblocked — DevOps step comes after integration.
+
+RISKS
+Risk	Impact	Probability	Mitigation
+Integration attempted before contracts approved	High	High if not enforced	This audit blocks it
+Frontend and backend evolve payloads independently	High	High	Freeze contract doc first
+Draft sharing ambiguity leaks into E2E failures	High	High	Resolve before any code
+Auth mechanism decided late causes rework on both sides	High	High	Decide before implementation
+Spin edge cases surface as production bugs	High	Medium	Define rules before coding
+Disconnect grace period mismatch causes phantom users	Medium	High	Approve numeric value
+eventId not used by frontend → duplicate UI events	Medium	High	Frontend must adopt
+ACTION
+Deliver FRONTEND_AUDIT.md, BACKEND_AUDIT.md, INTEGRATION_CONTRACT.md.
+
+Escalate 10 required decisions to Tech Manager.
+
+Wait for:
+
+Tech Manager approval,
+
+Backend contract freeze,
+
+Frontend plan update,
+
+Then re-run audit and only then proceed to integration.
+
+Only after successful integration → Step 6 (E2E test) → Step 7 (APK).
+
+STATUS
+BLOCKED — WAITING FOR APPROVAL
+
+I will not integrate. I will not build an APK. I will not run E2E tests. The 30-row contract comparison and 8 identified mismatches must be resolved by the Tech Manager first.
+
+text
+REQUIREMENT
+    ↓
+ANALYZE           ✓ (done)
+    ↓
+IDENTIFY UNKNOWN  ✓ (10 decisions listed)
+    ↓
+ARCHITECTURE DECISION   ← Tech Manager must complete
+    ↓
+APPROVAL                ← pending
+    ↓
+DEVELOPER PLAN          ← both plans must be revised
+    ↓
+IMPLEMENT
+    ↓
+REVIEW
+    ↓
+INTEGRATE               ← Agent 4 resumes here
+    ↓
+TEST
+    ↓
+DEPLOY
+    ↓
+VERIFY ONLINE

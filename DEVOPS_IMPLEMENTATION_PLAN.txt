@@ -1,0 +1,637 @@
+Role: Senior DevOps Engineer — 10+ years experience
+Source: TECH_MANAGER_REQUIREMENTS.md, FRONTEND_IMPLEMENTATION_PLAN.md, BACKEND_IMPLEMENTATION_PLAN.md, FULLSTACK_IMPLEMENTATION_PLAN.txt, Roxstar assessment PDF, architecture diagram
+Scope: Deployment Audit + Plan + Verification — DO NOT DEPLOY YET
+Status: BLOCKED — NO INTEGRATED ARTIFACT EXISTS
+
+COMMUNICATION PROTOCOL REPORT
+ANALYSIS
+I received the workflow chain:
+
+text
+TECH MANAGER     → CHANGES REQUIRED
+        ↓
+FRONTEND         → CHANGES REQUIRED
+        ↓
+BACKEND          → CHANGES REQUIRED
+        ↓
+FULL STACK       → BLOCKED — CONTRACTS NOT APPROVED
+        ↓
+DEVOPS           ← I am here
+The Full Stack Integration Developer explicitly did not integrate because:
+
+No approved REST contract.
+
+No approved WebSocket payload schema.
+
+No approved authentication mechanism.
+
+No approved Draft-sharing contract.
+
+No approved spin edge-case rules.
+
+No approved database technology.
+
+No approved client technology stack.
+
+Therefore:
+
+There is no backend artifact to Dockerize.
+
+There is no frontend artifact to package into an APK.
+
+There is no integration artifact to deploy.
+
+There is no runnable system to verify online.
+
+My first responsibility is not to deploy. My first responsibility is to:
+
+Audit what exists.
+
+Produce a deployment plan that assumes nothing unapproved.
+
+Mark every unresolved decision as NEEDS CLARIFICATION.
+
+Escalate dependencies.
+
+Wait for Full Stack to hand over an integrated, tested artifact.
+
+I will produce DEVOPS_DEPLOYMENT_PLAN.md as a plan, and I will not produce DEPLOYMENT_VERIFICATION.md because there is nothing to verify.
+
+FILE 1 — DEVOPS_DEPLOYMENT_PLAN.md
+markdown
+# DEVOPS_DEPLOYMENT_PLAN.md
+
+**Role:** Senior DevOps Engineer
+**Source:** TECH_MANAGER_REQUIREMENTS.md, FRONTEND_IMPLEMENTATION_PLAN.md, BACKEND_IMPLEMENTATION_PLAN.md, FULLSTACK_IMPLEMENTATION_PLAN.txt, architecture diagram
+**Status:** PLAN ONLY — NO DEPLOYMENT
+**Gate:** `BLOCKED — WAITING FOR INTEGRATED ARTIFACT + TECH MANAGER APPROVALS`
+
+---
+
+## 1. Requirements
+
+Manager-approved DevOps-relevant requirements:
+
+- Docker packaging is required for the backend.
+- Final hosting must be on AWS, GCP, or Azure.
+- Local-only final deployment is not accepted.
+- CI/CD configuration is a required submission artifact.
+- Cloud deployment assets are required.
+- A working cloud endpoint is required.
+- The final system must be tested as an integrated system, not merely compiled.
+- The final deployment must actually run online.
+- The APK must communicate with the deployed backend (not localhost).
+- Health/Readiness endpoints are required on the backend.
+- WebSocket/Socket.IO must work after deployment.
+- Authentication must work after deployment.
+- CORS must be correctly configured for the actual deployed client/backend architecture.
+- Secrets must not be committed to the repository; environment-based configuration is required.
+- Logs must support diagnosis without exposing secrets.
+- Failure handling must be demonstrated (including one expected failure).
+
+Explicit out-of-scope (must NOT be introduced by DevOps):
+
+- Kubernetes
+- Multi-tenant architecture
+- Live audio streaming infrastructure
+- WebRTC / LiveKit media servers
+- AI services
+
+---
+
+## 2. Technology
+
+DevOps-relevant technology gates. All low-level choices remain `NEEDS CLARIFICATION` until Tech Manager approves.
+
+| Area | Plan | Status |
+|---|---|---|
+| Backend runtime | Node.js | APPROVED |
+| Containerization | Docker | APPROVED |
+| Cloud provider | AWS / GCP / Azure | NEEDS CLARIFICATION |
+| Container registry | ECR / GCR / ACR / GHCR | NEEDS CLARIFICATION |
+| Compute target | VM / App Service / Cloud Run / ECS / etc. | NEEDS CLARIFICATION |
+| Managed database | RDS / Cloud SQL / Atlas / DocumentDB / self-hosted | NEEDS CLARIFICATION |
+| CI/CD provider | GitHub Actions / GitLab CI / Bitbucket Pipelines / CircleCI | NEEDS CLARIFICATION |
+| Secret storage | Cloud secrets manager / environment injection | NEEDS CLARIFICATION |
+| Log aggregation | Cloud-native logs / Loki / ELK / Pino → stdout | NEEDS CLARIFICATION |
+| Reverse proxy / TLS | Cloud LB / Nginx / Caddy | NEEDS CLARIFICATION |
+| WebSocket termination | Load balancer must support sticky/upgrade | NEEDS CLARIFICATION |
+| DNS | Cloud DNS / external | NEEDS CLARIFICATION |
+
+No additional tooling will be introduced without a requirement-based justification.
+
+---
+
+## 3. Deployment Architecture (Target, Not Yet Realizable)
+
+```text
+                   Internet
+                      │
+                      ▼
+              ┌───────────────┐
+              │  DNS + TLS    │
+              └───────┬───────┘
+                      │
+                      ▼
+              ┌───────────────┐
+              │ Reverse Proxy │  (HTTP + WS upgrade)
+              │ / Cloud LB    │
+              └───────┬───────┘
+                      │
+                      ▼
+              ┌───────────────┐
+              │ Node.js App   │  (Docker container)
+              │ REST + WS     │
+              └───────┬───────┘
+                      │
+                      ▼
+              ┌───────────────┐
+              │  Database     │  (managed)
+              └───────────────┘
+
+    Android APK (external)
+        │
+        ├── REST  ──→ HTTPS endpoint
+        └── WS    ──→ WSS endpoint
+This diagram is a target only. It cannot be built until the backend and frontend artifacts exist and their contracts are approved.
+
+4. Deployment Audit
+Audit of what currently exists vs. what is required.
+
+4.1 Backend Build
+Item	Required	Current State	Verdict
+Node.js backend source	Yes	Plan only — no code	MISSING
+Package manifest	Yes	Not present	MISSING
+Lockfile	Yes	Not present	MISSING
+Build script	Yes	Not defined	MISSING
+Production start command	Yes	Not defined	MISSING
+Environment variable contract	Yes	NEEDS CLARIFICATION	BLOCKED
+Health endpoint	Yes	Proposed /health — unapproved	BLOCKED
+Readiness endpoint	Yes	Proposed /ready — unapproved	BLOCKED
+Database technology	Yes	NEEDS CLARIFICATION	BLOCKED
+Migration tooling	Yes	Not chosen	BLOCKED
+Structured logging	Yes	Recommended only	BLOCKED
+Auth mechanism	Yes	NEEDS CLARIFICATION	BLOCKED
+4.2 Database Connection
+Item	Required	Current State	Verdict
+Database choice	Yes	Not approved	BLOCKED
+Connection string contract	Yes	Not defined	BLOCKED
+SSL/TLS to DB	Yes (production)	Not decided	BLOCKED
+Backup / retention policy	Yes (production)	Not decided	BLOCKED
+Migration ordering	Yes	Not decided	BLOCKED
+4.3 Docker Configuration
+Item	Required	Current State	Verdict
+Dockerfile	Yes	Not written	MISSING
+Multi-stage build	Recommended	Not decided	NEEDS CLARIFICATION
+Base image	Yes	Not decided	NEEDS CLARIFICATION
+Non-root user	Yes (security)	Not decided	NEEDS CLARIFICATION
+Healthcheck directive	Yes	Not written	MISSING
+.dockerignore	Yes	Not written	MISSING
+Image size strategy	Recommended	Not decided	NEEDS CLARIFICATION
+4.4 Port Configuration
+Item	Required	Current State	Verdict
+Internal HTTP port	Yes	Not defined	NEEDS CLARIFICATION
+External HTTPS port	Yes (via LB)	Not defined	NEEDS CLARIFICATION
+WebSocket port / upgrade	Yes	Not defined	NEEDS CLARIFICATION
+Port binding via env	Yes	Not defined	NEEDS CLARIFICATION
+4.5 Health Endpoint
+Item	Required	Current State	Verdict
+/health liveness	Yes	Proposed only	BLOCKED
+/ready readiness	Yes	Proposed only	BLOCKED
+Response schema	Yes	Not defined	BLOCKED
+4.6 WebSocket Support
+Item	Required	Current State	Verdict
+Socket.IO namespace	Yes	Proposed /rooms — unapproved	BLOCKED
+Handshake auth contract	Yes	NEEDS CLARIFICATION	BLOCKED
+LB sticky / upgrade support	Yes	Cloud not chosen	BLOCKED
+Reconnect grace period	Yes	NEEDS CLARIFICATION	BLOCKED
+Scaling strategy (single vs multi-instance)	Yes	Not decided	BLOCKED
+4.7 CORS
+Item	Required	Current State	Verdict
+Allowed origins for APK	Yes	Not defined	BLOCKED
+Allowed headers	Yes	Not defined	BLOCKED
+Allowed methods	Yes	Not defined	BLOCKED
+Credentials handling	Yes	Not defined	BLOCKED
+WebSocket origin policy	Yes	Not defined	BLOCKED
+4.8 Secrets
+Item	Required	Current State	Verdict
+Secret inventory	Yes	Not enumerated	BLOCKED
+Env injection mechanism	Yes	Not decided	BLOCKED
+No secrets in repo	Yes	Nothing to enforce yet	PENDING
+Rotation policy	Recommended	Not decided	NEEDS CLARIFICATION
+Audit of .env files	Yes	Not applicable yet	PENDING
+4.9 Logging
+Item	Required	Current State	Verdict
+Structured logs	Yes	Recommended only	BLOCKED
+Redaction of tokens/secrets	Yes	Not implemented	BLOCKED
+Log destination	Yes	Not decided	NEEDS CLARIFICATION
+Retention	Recommended	Not decided	NEEDS CLARIFICATION
+5. Docker Plan (Proposed, Not Final)
+Proposed Dockerfile strategy — NOT APPROVED, will not be written until backend exists and technology is approved:
+
+Multi-stage build:
+
+Stage 1: install dependencies + build.
+
+Stage 2: runtime-only image.
+
+Non-root runtime user.
+
+Read-only filesystem where feasible.
+
+HEALTHCHECK calling /health.
+
+Environment variable driven configuration.
+
+Production start command determined by backend plan.
+
+.dockerignore excluding tests, docs, local secrets, node_modules cache.
+
+Exact base image, Node version and package manager remain NEEDS CLARIFICATION.
+
+6. CI/CD Plan (Proposed, Not Final)
+Required pipeline stages (per assessment):
+
+text
+Install dependencies
+        ↓
+Lint / typecheck (if applicable)
+        ↓
+Run tests
+        ↓
+Build
+        ↓
+Deploy
+        ↓
+Health verification
+Rules:
+
+If tests fail → DO NOT DEPLOY.
+
+If build fails → DO NOT DEPLOY.
+
+If health verification fails → mark deployment failed and roll back.
+
+No secret values printed in logs.
+
+Provider (GitHub Actions / GitLab CI / etc.) is NEEDS CLARIFICATION.
+
+7. Cloud Plan (Proposed, Not Final)
+Cloud provider must be one of AWS / GCP / Azure. Not chosen yet — NEEDS CLARIFICATION.
+
+7.1 Components Required
+Component	Purpose	Provider-specific choice
+Compute	Run Docker backend	NEEDS CLARIFICATION
+Container registry	Store image	NEEDS CLARIFICATION
+Managed database	Persist entities	NEEDS CLARIFICATION
+Secrets store	Inject env vars securely	NEEDS CLARIFICATION
+Load balancer / Ingress	Terminate TLS, support WS upgrade	NEEDS CLARIFICATION
+DNS	Endpoint resolution	NEEDS CLARIFICATION
+Log sink	Aggregate structured logs	NEEDS CLARIFICATION
+Monitoring / alerts	Availability	NEEDS CLARIFICATION
+7.2 Deployment Constraints
+Must serve HTTPS + WSS.
+
+Must support WebSocket upgrade.
+
+Must connect to the chosen database over TLS.
+
+Must expose /health and /ready for the load balancer.
+
+Must not expose database credentials.
+
+Must allow the APK to connect from an external network.
+
+7.3 Explicit Non-Requirements
+Per Tech Manager:
+
+No Kubernetes.
+
+No multi-tenant setup.
+
+No media server.
+
+No AI services.
+
+8. Environment Configuration Plan
+Proposed environment variables (names to be finalized after backend approval):
+
+text
+NODE_ENV
+PORT
+DATABASE_URL
+DATABASE_SSL
+AUTH_SECRET            (if applicable)
+AUTH_ISSUER            (if applicable)
+AUTH_AUDIENCE          (if applicable)
+CORS_ALLOWED_ORIGINS
+LOG_LEVEL
+SOCKET_PATH            (if applicable)
+Rules:
+
+No secret values committed.
+
+No .env checked into the repository.
+
+Values injected via cloud secret manager or pipeline secrets.
+
+Values validated at startup; fail fast on missing critical variables.
+
+9. Real Online Verification Plan (Not Executed)
+Once an integrated, tested artifact exists, the following must be verified from an external network:
+
+text
+GET /health              → 200
+GET /ready               → 200 (DB reachable)
+POST /rooms              → creates room
+POST /rooms/:id/join     → joins room
+WS handshake             → connects, auth accepted
+room_state received      → authoritative payload
+Share Draft              → draft_shared broadcast
+Start Spin               → spin_started broadcast
+Elimination ticks        → user_eliminated every 5s
+Final tick               → winner_announced
+Get spin result          → persisted state
+Reconnect test           → room_state recovery works
+Failure test             → expected failure handled cleanly
+This is the only way to declare "deployment successful."
+
+10. Production Verification Plan (Not Executed)
+Item	How it will be verified	Current State
+Backend reachable	External curl from a different network	Not runnable
+Database reachable	/ready returns OK	Not runnable
+REST APIs working	E2E curl / scripted test	Not runnable
+WebSocket working	External Socket.IO client	Not runnable
+Authentication working	Valid + invalid token tests	Not runnable
+CORS working	APK-origin preflight test	Not runnable
+Environment variables working	Config loaded and validated	Not runnable
+APK can connect	Release APK pointing to cloud URL	APK not built
+Logs available	Log sink inspected	Not configured
+Failure handling working	Simulated failure and recovery	Not runnable
+DEPLOYMENT_VERIFICATION.md will be produced only after real execution. Nothing has been executed.
+
+11. Risks
+Risk	Impact	Probability	Mitigation	Owner
+Deploy attempted before contracts approved	High	High if not enforced	This plan blocks deployment	DevOps
+Wrong cloud choice causes rework	High	Medium	Tech Manager must approve cloud before Dockerfile is written	DevOps + Tech Manager
+Database technology late decision breaks Dockerfile/CI	High	High	Freeze DB choice before writing Dockerfile	Tech Manager
+Secrets leaked in CI logs	High	Medium	Redact env, restrict echo, audit pipeline	DevOps
+APK ships pointing to localhost	High	Medium	Build-time check + runtime check on release APK	DevOps + Full Stack
+WebSocket broken behind LB	High	High	Test WSS upgrade before declaring success	DevOps
+CORS misconfigured for APK	High	Medium	Explicit origin allowlist; verify with preflight	DevOps + Backend
+Health/Ready endpoints not implemented	High	High	Blocked until backend defines them	Backend
+No migration tooling chosen	Medium	High	Decide before first deploy	Tech Manager + Backend
+Log growth / unbounded SpinEvent table	Medium	Medium	Retention policy must be approved	Backend + DevOps
+No rollback strategy	High	Medium	Define image tag policy + rollback procedure	DevOps
+Scaling causes duplicate spin timers	High	Medium	Must know if backend is single-instance or clustered	Backend + DevOps
+Health check too shallow	Medium	Medium	/ready must verify DB, not just process	Backend
+12. Approval
+DEVOPS STATUS:
+BLOCKED — WAITING FOR INTEGRATED ARTIFACT + TECH MANAGER DECISIONS
+
+BLOCKERS:
+
+No integrated, tested backend artifact exists (Full Stack is BLOCKED).
+
+No frontend APK exists.
+
+Cloud provider not approved.
+
+Container registry not approved.
+
+Compute target not approved.
+
+Database technology not approved.
+
+Database managed service not approved.
+
+CI/CD provider not approved.
+
+Secrets management mechanism not approved.
+
+Log destination not approved.
+
+API/WebSocket contract not approved (prevents health/ready/LB design).
+
+Auth mechanism not approved (prevents pipeline secret design).
+
+Health/Readiness endpoint shapes not approved.
+
+CORS origins not approved.
+
+WebSocket handshake/auth contract not approved.
+
+Whether backend will run single-instance or clustered is undecided (directly affects spin-timer correctness).
+
+DEPENDENCIES:
+
+From Tech Manager:
+
+Cloud provider choice.
+
+CI/CD provider choice.
+
+Database choice (before Dockerfile is written).
+
+Secrets-management approach.
+
+Confirmation that Kubernetes is out of scope (already stated).
+
+From Full Stack Integration Developer:
+
+A working integrated artifact with passing E2E tests.
+
+Confirmation that the APK has been configured for a non-localhost backend.
+
+From Backend Developer:
+
+Final /health and /ready response schemas.
+
+Final env-var contract.
+
+Migration tooling and commands.
+
+Structured log format and redaction rules.
+
+Single-instance vs. clustered decision.
+
+From Frontend Developer:
+
+Release build configuration for the production backend URL.
+
+From QA:
+
+Signed-off integration test results before first deployment.
+
+RECOMMENDATIONS:
+
+Approve cloud provider before any Dockerfile is written.
+
+Approve database before Dockerfile and CI are written.
+
+Approve CI/CD provider before pipeline YAML is authored.
+
+Approve secrets mechanism before first pipeline run.
+
+Require signed Full Stack E2E results as a precondition of any deploy.
+
+Require an explicit statement of single-instance vs. clustered backend before spin-timer design is finalized.
+
+Do not produce DEPLOYMENT_VERIFICATION.md until the online system is actually verified from an external network.
+
+13. Final DevOps Principle
+text
+REQUIREMENT
+    ↓
+AUDIT
+    ↓
+IDENTIFY UNKNOWN
+    ↓
+PLAN
+    ↓
+WAIT FOR APPROVED TECH + INTEGRATED ARTIFACT
+    ↓
+DOCKERIZE
+    ↓
+PIPELINE
+    ↓
+DEPLOY
+    ↓
+VERIFY ONLINE (external network)
+    ↓
+VERIFY PERSISTENCE
+    ↓
+DECLARE SUCCESSFUL
+No blind deployment. No "uploaded = successful."
+
+COMMUNICATION PROTOCOL REPORT
+REQUIREMENTS
+Perform deployment audit and produce DEVOPS_DEPLOYMENT_PLAN.md.
+
+Do not produce DEPLOYMENT_VERIFICATION.md until real verification has run.
+
+Do not deploy without an integrated artifact.
+
+Do not introduce Kubernetes, multi-tenant, media, or AI infrastructure.
+
+Follow the global rule: never declare deployment successful without testing the online system.
+
+ASSUMPTIONS
+No production code exists yet in any layer.
+
+No approval has been granted on any open architecture decision.
+
+The Full Stack Integration Developer's BLOCKED status is authoritative.
+
+The Tech Manager will not approve partial deployments.
+
+The PDF's out-of-scope list is binding.
+
+DECISIONS
+Do not deploy. No artifact exists.
+
+Do not write a Dockerfile yet. Base image, port, start command and DB technology are all unapproved.
+
+Do not write pipeline YAML yet. CI/CD provider not approved.
+
+Do not provision cloud resources yet. Cloud provider not approved.
+
+Do not produce DEPLOYMENT_VERIFICATION.md. Nothing has been verified.
+
+Produce a deployment plan that enumerates every unresolved decision and every dependency, so the Tech Manager can close them in one pass.
+
+DEPENDENCIES
+Blocking — Tech Manager:
+
+Cloud provider.
+
+CI/CD provider.
+
+Database technology.
+
+Secrets management.
+
+Confirmation of single-instance vs. clustered backend (affects spin timer correctness in production).
+
+Blocking — Full Stack:
+
+An integrated, E2E-tested artifact.
+
+Confirmation that the release APK targets the production backend.
+
+Blocking — Backend:
+
+Final /health and /ready response schemas.
+
+Final env-var contract.
+
+Migration tooling and commands.
+
+Structured logging format and redaction rules.
+
+Production single-instance vs. clustered decision.
+
+Blocking — Frontend:
+
+Release build configuration for the production URL.
+
+Blocking — QA:
+
+Signed-off E2E results before first deploy.
+
+RISKS
+Attempting any DevOps step before Tech Manager approvals will cause rework and violate the global rules.
+
+Attempting to "just dockerize" a non-existent backend would be fabrication and is rejected.
+
+Attempting to declare "deployment successful" on an unverified system violates the most important rule.
+
+A clustered backend without a leader election or single-timer mechanism will produce duplicate spin eliminations — this must be settled before deployment architecture is chosen.
+
+ACTION
+Deliver DEVOPS_DEPLOYMENT_PLAN.md (above).
+
+Escalate the following to the Tech Manager:
+
+Cloud provider choice.
+
+CI/CD provider choice.
+
+Database choice.
+
+Secrets management approach.
+
+Single-instance vs. clustered backend decision.
+
+Wait for the Full Stack Integration Developer to deliver a signed-off integrated artifact with passing E2E tests.
+
+Re-run the deployment audit against the real artifact.
+
+Only then write the Dockerfile, pipeline, and cloud configuration.
+
+Only then deploy and verify online from an external network.
+
+Only then produce DEPLOYMENT_VERIFICATION.md.
+
+STATUS
+BLOCKED — WAITING FOR APPROVAL + INTEGRATED ARTIFACT
+
+text
+TECH MANAGER         CHANGES REQUIRED
+        ↓
+FRONTEND             CHANGES REQUIRED
+        ↓
+BACKEND              CHANGES REQUIRED
+        ↓
+FULL STACK           BLOCKED — CONTRACTS NOT APPROVED
+        ↓
+DEVOPS               BLOCKED — NO INTEGRATED ARTIFACT
+        ↓
+        ├── No Dockerfile written
+        ├── No pipeline written
+        ├── No cloud resources provisioned
+        ├── No APK verified
+        ├── No online verification performed
+        └── DEPLOYMENT_VERIFICATION.md  NOT PRODUCED
+I will not deploy. I will not write a Dockerfile against unapproved technology. I will not declare success on an unverified system. The Tech Manager must close the open decisions, and Full Stack must deliver a working integrated artifact first.
+

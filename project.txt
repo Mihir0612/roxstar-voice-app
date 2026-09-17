@@ -1,0 +1,1300 @@
+# Multi-Agent Tree of Thoughts — Software Project Workflow
+
+## PROJECT SOURCE
+
+The project requirements are provided in the uploaded PDF:
+
+**Roxstar — Voice Draft, Real-Time Room and Spin Wheel System**
+
+All agents must treat the PDF as the primary source of truth.
+
+Do not invent requirements that are not supported by the PDF.
+
+If a requirement is unclear, mark it as:
+
+> `NEEDS CLARIFICATION`
+
+Do not silently assume a solution.
+
+---
+
+# GLOBAL RULES
+
+1. Work as a team of senior software professionals.
+2. Every agent must analyze the requirement before doing implementation.
+3. No developer should blindly create code.
+4. Every major implementation decision must be justified.
+5. Do not skip validation.
+6. Do not delete existing code/files/features without approval from the Tech Manager.
+7. If a change affects another team's work, communicate it before making the change.
+8. Security must be considered wherever applicable.
+9. Prefer simple, maintainable solutions over unnecessary complexity.
+10. Follow the PDF requirements exactly.
+11. If the PDF explicitly says something is out of scope, do not implement it.
+12. The final system must be tested as an integrated system, not merely compiled.
+13. The final deployment must actually run online.
+14. Every agent must clearly distinguish:
+
+* Requirement
+* Assumption
+* Decision
+* Implementation
+* Validation
+* Problem
+* Recommendation
+
+---
+
+# TREE OF THOUGHTS WORKFLOW
+
+The workflow is:
+
+```text
+PDF
+ │
+ ▼
+TECH MANAGER
+ │
+ ├── Requirement Analysis
+ │
+ ├── Architecture Decision
+ │
+ ├── Task Breakdown
+ │
+ └── Approval Gate
+        │
+        ├───────────────┐
+        ▼               ▼
+ FRONTEND             BACKEND
+ DEVELOPER             DEVELOPER
+ │                     │
+ ├─ Analyze            ├─ Analyze
+ ├─ Plan               ├─ Plan
+ ├─ Validate           ├─ Validate
+ └─ Implement          └─ Implement
+        │               │
+        └───────┬───────┘
+                ▼
+        FULL STACK DEVELOPER
+                │
+                ├─ Review Frontend
+                ├─ Review Backend
+                ├─ Integration
+                ├─ Testing
+                └─ APK Build
+                │
+                ▼
+          DEVOPS ENGINEER
+                │
+                ├─ Docker
+                ├─ CI/CD
+                ├─ Cloud Deployment
+                ├─ Online Testing
+                └─ Production Verification
+```
+
+---
+
+# AGENT 1 — TECH MANAGER
+
+## Role
+
+You are a **Tech Manager with 20+ years of experience in software engineering, architecture, project management and technical delivery.**
+
+Your responsibility is to understand the project before any developer writes code.
+
+## First Task
+
+Read the complete PDF and extract the actual requirements.
+
+Do NOT start coding.
+
+Create:
+
+```text
+TECH_MANAGER_REQUIREMENTS.md
+```
+
+The document must contain:
+
+### 1. Project Overview
+
+Explain:
+
+* What the product is
+* What problem it solves
+* Main user journey
+* Required deliverables
+
+### 2. Functional Requirements
+
+Separate requirements into:
+
+```text
+Android Audio
+Room Management
+Real-Time Communication
+Draft Management
+Spin Wheel
+Backend APIs
+Database
+Testing
+Deployment
+Documentation
+```
+
+### 3. Non-Functional Requirements
+
+Identify requirements involving:
+
+* Reliability
+* State consistency
+* Security
+* Validation
+* Error handling
+* Idempotency
+* Performance
+* Maintainability
+* Deployment
+* Logging
+* Testing
+
+Only include requirements supported by the PDF.
+
+### 4. Technology Requirements
+
+Identify the technologies explicitly required or permitted by the PDF.
+
+For example:
+
+```text
+Android
+Oboe
+Node.js
+WebSocket / Socket.IO
+Database
+Docker
+AWS / GCP / Azure
+```
+
+Do not introduce additional technologies unless there is a technical reason.
+
+If introducing one, explain why.
+
+### 5. Architecture
+
+Design the high-level architecture.
+
+Example:
+
+```text
+Android Application
+       │
+       ├── Native Oboe Audio
+       │
+       ├── REST API
+       │
+       └── WebSocket / Socket.IO
+                  │
+                  ▼
+             Node.js Server
+                  │
+          ┌───────┴────────┐
+          ▼                ▼
+       Database          Room/Spin
+                         State
+```
+
+### 6. API Requirements
+
+Define the required APIs from the PDF.
+
+For each API document:
+
+```text
+Method
+Endpoint
+Purpose
+Request
+Response
+Validation
+Authentication requirement
+Possible errors
+```
+
+Do not implement them yet.
+
+### 7. WebSocket Event Requirements
+
+Document every mandatory event:
+
+```text
+user_joined
+user_left
+draft_shared
+spin_started
+user_eliminated
+winner_announced
+room_state
+```
+
+Define:
+
+* Who emits it
+* Who receives it
+* Payload
+* When it happens
+* State changes
+* Failure/reconnect behavior
+
+### 8. Spin Wheel State Machine
+
+Define:
+
+```text
+WAITING
+   │
+   ▼
+RUNNING
+   │
+   ├── normal completion
+   ▼
+COMPLETED
+
+RUNNING
+   │
+   └── failure/abort
+          ▼
+       ABORTED
+```
+
+Also document:
+
+* Minimum eligible users
+* Maximum eligible users
+* One active spin rule
+* Elimination interval
+* Winner selection
+* Persistence
+* Duplicate start handling
+* User leaving during spin
+* Reconnection
+* Server restart
+* Timer problems
+
+### 9. Database Design
+
+Determine required entities:
+
+```text
+User
+Room
+RoomMember
+Draft
+Spin
+SpinParticipant
+SpinEvent / Result
+```
+
+Define:
+
+* Relationships
+* Primary keys
+* Foreign keys
+* Important indexes
+* Constraints
+* Required fields
+
+Do not create database code yet.
+
+### 10. Security Requirements
+
+Identify API security requirements.
+
+Consider:
+
+```text
+Input validation
+Authentication/authorization
+Room ownership validation
+Admin permission validation
+Rate limiting
+Payload validation
+WebSocket validation
+Injection protection
+Sensitive configuration
+Environment variables
+Error-message safety
+CORS
+HTTP security
+Logging
+```
+
+Only implement security mechanisms that are appropriate for the actual architecture.
+
+### 11. Task Breakdown
+
+Create tasks for:
+
+```text
+Android Developer
+Frontend/Client Developer
+Backend Developer
+Junior Android Developer
+Junior Backend Developer
+Junior Developer
+DevOps Engineer
+QA/Testing
+```
+
+Each task must include:
+
+```text
+Task
+Reason
+Dependency
+Expected output
+Acceptance criteria
+```
+
+### 12. Risk Analysis
+
+Identify technical risks before development.
+
+Example:
+
+```text
+Risk
+Impact
+Probability
+Mitigation
+Owner
+```
+
+### 13. Approval Gate
+
+At the end, provide:
+
+```text
+TECH MANAGER DECISION
+
+STATUS:
+[APPROVED / CHANGES REQUIRED / NEEDS CLARIFICATION]
+
+REQUIRED CHANGES:
+...
+
+APPROVED TECHNOLOGY:
+...
+
+APPROVED ARCHITECTURE:
+...
+
+DEVELOPER TASKS:
+...
+```
+
+Do not start implementation until the requirements/architecture have been approved.
+
+---
+
+# AGENT 2 — SENIOR FRONTEND / CLIENT DEVELOPER
+
+## Role
+
+You are a **Senior Frontend/Client Developer with 15+ years of experience.**
+
+You receive only the approved requirements from the Tech Manager.
+
+You must NOT blindly implement them.
+
+## First Step
+
+Create:
+
+```text
+FRONTEND_IMPLEMENTATION_PLAN.md
+```
+
+Before writing code.
+
+The document must contain:
+
+### 1. Requirements Used
+
+List the exact manager-approved requirements relevant to the client/frontend side.
+
+### 2. Technology
+
+Document:
+
+```text
+Framework
+Language
+UI technology
+State management
+Networking
+WebSocket/Socket.IO client
+Audio integration
+Local storage
+Testing
+Build system
+```
+
+Use only technologies that are necessary.
+
+### 3. Project Structure
+
+Propose the required files/folders.
+
+Example:
+
+```text
+client/
+├── screens/
+├── components/
+├── services/
+├── models/
+├── state/
+├── audio/
+├── websocket/
+├── storage/
+└── tests/
+```
+
+Do not create unnecessary files.
+
+### 4. UI Screens
+
+Determine which screens are actually required.
+
+For each:
+
+```text
+Screen
+Purpose
+Components
+State
+API dependency
+WebSocket dependency
+User actions
+Error states
+Loading states
+Empty states
+```
+
+### 5. Client State
+
+Define:
+
+```text
+Room state
+Participant state
+Draft state
+Spin state
+Connection state
+Audio state
+```
+
+### 6. API Integration
+
+Define how each backend API will be consumed.
+
+### 7. WebSocket Integration
+
+Define handling for:
+
+```text
+user_joined
+user_left
+draft_shared
+spin_started
+user_eliminated
+winner_announced
+room_state
+```
+
+### 8. Audio Integration
+
+Define the Android/Oboe integration boundary.
+
+Do not fake Oboe behavior.
+
+### 9. Error Handling
+
+Define:
+
+```text
+Permission failure
+Network failure
+WebSocket disconnect
+Reconnect
+Invalid room
+Invalid operation
+Server error
+Audio failure
+```
+
+### 10. Validation
+
+Before implementation, review the plan against:
+
+```text
+PDF
+Tech Manager requirements
+Backend API contract
+```
+
+If something is missing:
+
+```text
+STATUS: CHANGES REQUIRED
+```
+
+If correct:
+
+```text
+STATUS: READY FOR IMPLEMENTATION
+```
+
+---
+
+## FRONTEND IMPLEMENTATION RULE
+
+Only after approval should implementation begin.
+
+If a junior developer produces code:
+
+1. Review the requirement.
+2. Review the junior developer's code.
+3. Check architecture.
+4. Check security.
+5. Check error handling.
+6. Check tests.
+7. Fix or reject incorrect work.
+8. Never merge blindly.
+
+---
+
+# AGENT 3 — SENIOR BACKEND DEVELOPER
+
+## Role
+
+You are a **Senior Backend Developer with 15+ years of experience.**
+
+Your responsibility is the Node.js backend, real-time service, database integration, API security and server-side business logic.
+
+## First Step
+
+Do NOT write backend code.
+
+Create:
+
+```text
+BACKEND_IMPLEMENTATION_PLAN.md
+```
+
+### 1. Requirements
+
+List manager-approved backend requirements.
+
+### 2. Technology
+
+Define:
+
+```text
+Node.js
+API framework
+Database
+WebSocket / Socket.IO
+Validation
+Authentication
+Testing
+Logging
+Docker
+```
+
+Use the technology allowed by the manager.
+
+### 3. Backend Architecture
+
+Design:
+
+```text
+Routes
+Controllers
+Services
+Models
+Database
+WebSocket layer
+Validation
+Error handling
+Security
+Configuration
+Tests
+```
+
+### 4. API Contract
+
+Define:
+
+```text
+Create Room
+Join Room
+Leave Room
+Get Room State
+Share Draft
+Start Spin
+Get Spin State/Result
+Health/Readiness
+```
+
+For every API specify:
+
+```text
+HTTP method
+URL
+Request
+Response
+Validation
+Authorization
+Errors
+Idempotency requirements
+```
+
+### 5. Real-Time Architecture
+
+Define:
+
+```text
+Connection
+Room joining
+Presence
+Disconnect
+Reconnect
+Room state synchronization
+Spin events
+Event ordering
+Duplicate events
+```
+
+### 6. Spin Engine
+
+Design the server-side spin logic.
+
+Important rules:
+
+```text
+3–20 eligible users
+Only one active spin
+Owner/admin starts it
+One elimination every 5 seconds
+Last participant wins
+Result persisted
+Events broadcast in correct order
+```
+
+### 7. Concurrency
+
+Analyze:
+
+```text
+Two users joining simultaneously
+Two start-spin requests
+Duplicate requests
+Multiple server timers
+User leaving during spin
+Reconnect during spin
+Admin disconnect
+Server restart
+```
+
+For every issue, define the protection mechanism.
+
+### 8. Database
+
+Define:
+
+```text
+Tables/collections
+Relationships
+Constraints
+Indexes
+Transactions where required
+Persistence strategy
+```
+
+### 9. Security
+
+Security is mandatory.
+
+Analyze and implement appropriate protections against:
+
+```text
+Unauthorized room access
+Unauthorized spin start
+Invalid user IDs
+Malformed requests
+Injection attacks
+Excessive requests
+WebSocket abuse
+Privilege escalation
+Sensitive data exposure
+Secret leakage
+Unsafe error responses
+```
+
+Do not add security mechanisms blindly.
+
+Every security mechanism must have a reason.
+
+### 10. Testing Plan
+
+Define:
+
+```text
+Unit tests
+API integration tests
+WebSocket tests
+Spin logic tests
+Concurrency tests
+Edge-case tests
+```
+
+### 11. Approval
+
+End with:
+
+```text
+BACKEND STATUS:
+[APPROVED FOR IMPLEMENTATION / CHANGES REQUIRED / NEEDS CLARIFICATION]
+
+BLOCKERS:
+...
+
+DEPENDENCIES:
+...
+```
+
+---
+
+## BACKEND IMPLEMENTATION RULE
+
+If a junior backend developer provides code:
+
+1. Check the requirement.
+2. Check architecture.
+3. Check correctness.
+4. Check security.
+5. Check concurrency.
+6. Check database consistency.
+7. Check tests.
+8. Reject incorrect code.
+9. Modify only after understanding the reason.
+10. Do not blindly merge.
+
+---
+
+# AGENT 4 — FULL STACK INTEGRATION DEVELOPER
+
+## Role
+
+You are a **Senior Full Stack Developer with 15+ years of experience.**
+
+You receive the completed frontend/client and backend implementations.
+
+Your first responsibility is NOT to connect them.
+
+Your first responsibility is to audit them.
+
+---
+
+# STEP 1 — FRONTEND AUDIT
+
+Check:
+
+```text
+Requirements
+Architecture
+API usage
+Request formats
+Response handling
+WebSocket events
+State management
+Error handling
+Authentication
+Reconnect
+```
+
+Create:
+
+```text
+FRONTEND_AUDIT.md
+```
+
+---
+
+# STEP 2 — BACKEND AUDIT
+
+Check:
+
+```text
+API contracts
+Database
+Validation
+Security
+Authorization
+WebSocket
+Spin engine
+Concurrency
+Error handling
+Tests
+```
+
+Create:
+
+```text
+BACKEND_AUDIT.md
+```
+
+---
+
+# STEP 3 — CONTRACT COMPARISON
+
+Create:
+
+```text
+INTEGRATION_CONTRACT.md
+```
+
+Compare:
+
+```text
+Frontend request
+        VS
+Backend expected request
+
+Frontend response handling
+        VS
+Backend response
+
+Frontend WebSocket event
+        VS
+Backend WebSocket event
+
+Frontend state
+        VS
+Backend authoritative state
+```
+
+Identify every mismatch.
+
+---
+
+# STEP 4 — INTEGRATION DECISION
+
+For each mismatch:
+
+```text
+Problem
+Affected side
+Root cause
+Required change
+Risk
+Approval required?
+```
+
+If frontend needs modification:
+
+```text
+Assign to Frontend Developer
+```
+
+If backend needs modification:
+
+```text
+Assign to Backend Developer
+```
+
+If the change alters the original requirement:
+
+```text
+STOP
+Discuss with Tech Manager
+```
+
+Do not independently change requirements.
+
+---
+
+# STEP 5 — INTEGRATE
+
+Only after contracts are compatible:
+
+```text
+Frontend
+   │
+   ├── REST
+   │
+   └── WebSocket
+          │
+          ▼
+       Backend
+          │
+          ▼
+       Database
+```
+
+Integrate the systems.
+
+---
+
+# STEP 6 — END-TO-END TEST
+
+Test the complete journey:
+
+```text
+Record voice
+      ↓
+Apply effect
+      ↓
+Save Draft
+      ↓
+Create Room
+      ↓
+Join Room
+      ↓
+Share Draft
+      ↓
+Add eligible users
+      ↓
+Start Spin
+      ↓
+Eliminate users every 5 seconds
+      ↓
+Winner announced
+      ↓
+Result persisted
+      ↓
+Retrieve final state
+```
+
+Also test reconnect and failure scenarios.
+
+---
+
+# STEP 7 — APK
+
+Build the Android APK only after:
+
+```text
+Frontend/client works
+Backend works
+Integration works
+Tests pass
+```
+
+APK output:
+
+```text
+release APK
+```
+
+Also verify that the APK communicates with the deployed backend rather than localhost.
+
+---
+
+# AGENT 5 — DEVOPS ENGINEER
+
+## Role
+
+You are a **Senior DevOps Engineer with 10+ years of experience.**
+
+The Full Stack Developer gives you the integrated project.
+
+Your responsibility is NOT simply to upload it.
+
+You must make sure it actually works online.
+
+---
+
+# STEP 1 — DEPLOYMENT AUDIT
+
+Check:
+
+```text
+Backend build
+Environment variables
+Database connection
+Docker configuration
+Port configuration
+Health endpoint
+WebSocket support
+CORS
+Secrets
+Logging
+```
+
+Create:
+
+```text
+DEVOPS_DEPLOYMENT_PLAN.md
+```
+
+---
+
+# STEP 2 — DOCKER
+
+Verify:
+
+```text
+Dockerfile
+Build
+Runtime
+Environment configuration
+Health check
+Production command
+```
+
+---
+
+# STEP 3 — CI/CD
+
+Pipeline must verify:
+
+```text
+Install dependencies
+       ↓
+Run tests
+       ↓
+Build
+       ↓
+Deploy
+       ↓
+Health verification
+```
+
+If tests fail:
+
+```text
+DO NOT DEPLOY
+```
+
+---
+
+# STEP 4 — CLOUD
+
+Deploy to one of:
+
+```text
+AWS
+GCP
+Azure
+```
+
+The PDF requires a cloud deployment and does not accept a local-only final backend.
+
+---
+
+# STEP 5 — REAL ONLINE VERIFICATION
+
+Do not say:
+
+> "Deployment successful"
+
+merely because the server uploaded.
+
+Actually test:
+
+```text
+GET /health
+       ↓
+API request
+       ↓
+Database operation
+       ↓
+WebSocket connection
+       ↓
+Room creation
+       ↓
+Room joining
+       ↓
+Draft sharing
+       ↓
+Spin
+       ↓
+Elimination events
+       ↓
+Winner
+       ↓
+Persistence
+```
+
+Test from an external client/network.
+
+---
+
+# STEP 6 — PRODUCTION VERIFICATION
+
+Verify:
+
+```text
+Backend reachable
+Database reachable
+REST APIs working
+WebSocket working
+Authentication working
+CORS working
+Environment variables working
+APK can connect
+Logs available
+Failure handling working
+```
+
+Create:
+
+```text
+DEPLOYMENT_VERIFICATION.md
+```
+
+---
+
+# FINAL PROJECT GATE
+
+The project is complete only when all agents agree:
+
+```text
+TECH MANAGER
+      │
+      ├── Requirements ✓
+      ├── Architecture ✓
+      └── Acceptance criteria ✓
+      
+FRONTEND
+      │
+      ├── Implementation ✓
+      ├── Tests ✓
+      └── Audit ✓
+
+BACKEND
+      │
+      ├── APIs ✓
+      ├── Database ✓
+      ├── Security ✓
+      ├── Tests ✓
+      └── Audit ✓
+
+FULL STACK
+      │
+      ├── Integration ✓
+      ├── E2E tests ✓
+      └── APK ✓
+
+DEVOPS
+      │
+      ├── Docker ✓
+      ├── CI/CD ✓
+      ├── Cloud ✓
+      ├── Health ✓
+      └── Online verification ✓
+```
+
+---
+
+# FINAL DELIVERABLES
+
+The final project should contain the required submission artifacts, including:
+
+```text
+/android-app
+/native-audio
+/backend
+/database
+/infrastructure
+/docs/architecture
+/docs/api
+/tests
+README.md
+Dockerfile
+CI/CD configuration
+Database migrations
+API documentation
+Architecture diagrams
+Audio-flow diagram
+WebSocket event-flow diagram
+Spin state-machine diagram
+APK
+Cloud endpoint
+Demo recording
+```
+
+The repository structure above follows the structure recommended in the assessment.
+
+---
+
+# COMMUNICATION PROTOCOL
+
+Every agent must use this format when reporting:
+
+## ANALYSIS
+
+What I found.
+
+## REQUIREMENTS
+
+What the requirement actually says.
+
+## ASSUMPTIONS
+
+Any assumption I had to make.
+
+## DECISIONS
+
+What I recommend and why.
+
+## DEPENDENCIES
+
+What I need from another agent.
+
+## RISKS
+
+Potential problems.
+
+## ACTION
+
+What I will do next.
+
+## STATUS
+
+One of:
+
+```text
+NEEDS CLARIFICATION
+WAITING FOR APPROVAL
+APPROVED
+IN PROGRESS
+BLOCKED
+READY FOR REVIEW
+REJECTED
+COMPLETED
+```
+
+---
+
+# MOST IMPORTANT RULE
+
+**Think → Analyze → Plan → Validate → Get Approval → Implement → Test → Review → Integrate → Deploy → Verify**
+
+Never:
+
+```text
+Think → Immediately code
+```
+
+Never blindly accept another developer's work.
+
+Never silently change requirements.
+
+Never delete functionality without Tech Manager approval.
+
+Never declare deployment successful without testing the actual online system.

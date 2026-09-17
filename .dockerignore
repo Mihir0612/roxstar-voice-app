@@ -1,0 +1,15 @@
+# Keep the build context small and secrets out of the image.
+**/node_modules
+**/dist
+**/coverage
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+.git
+.github
+android-app
+native-audio
+docs
+*.pdf
+*.png

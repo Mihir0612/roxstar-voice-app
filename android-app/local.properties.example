@@ -1,0 +1,6 @@
+# Copy to local.properties. This file is gitignored -- it is machine-specific.
+#
+# Windows:  sdk.dir=C\:\Users\<you>\AppData\Local\Android\Sdk
+# macOS:    sdk.dir=/Users/<you>/Library/Android/sdk
+# Linux:    sdk.dir=/home/<you>/Android/Sdk
+sdk.dir=C\:\Users\<you>\AppData\Local\Android\Sdk

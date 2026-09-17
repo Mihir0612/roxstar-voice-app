@@ -1,0 +1,14 @@
+# Copy to terraform.tfvars and fill in. terraform.tfvars is gitignored (D29).
+#
+#   auth_secret: openssl rand -base64 32
+#   db_password: openssl rand -base64 24
+
+project_id  = "your-gcp-project-id"
+region      = "europe-west1"
+image       = "europe-west1-docker.pkg.dev/your-gcp-project-id/roxstar/roxstar-backend:latest"
+
+db_password = "REPLACE_ME"
+auth_secret = "REPLACE_ME_AT_LEAST_16_CHARS"
+
+cors_allowed_origins = ""
+deletion_protection  = true
