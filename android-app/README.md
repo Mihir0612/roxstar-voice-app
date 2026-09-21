@@ -34,9 +34,20 @@ export JAVA_HOME="/c/Program Files/Eclipse Adoptium/jdk-17.0.20.101-hotspot"
 
 ## Configure the backend URL
 
-Debug builds default to `http://10.0.2.2:8080`, which is the host machine as
-seen from the emulator. Start the backend with `docker compose up` and a debug
-build will reach it.
+Debug builds use the emulator alias automatically. On a physical device,
+`installDebug` automatically runs `adb reverse`, so the app can use the same
+local endpoint without embedding the computer's LAN IP in the APK. Keep USB
+debugging enabled and accept the computer authorization prompt on the device.
+
+Start the backend with `docker compose up` first, then run the app from Android
+Studio or with `./gradlew installDebug`. The forwarding rule is recreated after
+each install, including after a device restart. The phone and computer do not
+need to be on the same Wi-Fi network.
+
+For devices that cannot use USB debugging, a local development server needs a
+reachable LAN hostname/IP, or the backend must be deployed to a public HTTPS
+domain. There is no device-independent address for a server running only on a
+developer's computer.
 
 Release builds need the deployed URL. In `gradle.properties`:
 

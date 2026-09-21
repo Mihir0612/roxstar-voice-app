@@ -1,5 +1,6 @@
 package com.roxstar.app.data.api
 
+import android.os.Build
 import com.roxstar.app.BuildConfig
 import com.squareup.moshi.Moshi
 import okhttp3.Interceptor
@@ -77,7 +78,24 @@ object ApiClient {
         .retryOnConnectionFailure(true)
         .build()
 
-    val baseUrl: String = BuildConfig.API_BASE_URL.trimEnd('/') + "/"
+    val baseUrl: String = resolveBaseUrl().trimEnd('/') + "/"
+
+    private fun resolveBaseUrl(): String {
+        if (!BuildConfig.DEBUG || BuildConfig.API_BASE_URL != "http://10.0.2.2:8080") {
+            return BuildConfig.API_BASE_URL
+        }
+
+        // 10.0.2.2 is available only inside an emulator. Physical debug
+        // devices use adb reverse to reach the backend through localhost.
+        val emulator = Build.FINGERPRINT.startsWith("generic") ||
+            Build.FINGERPRINT.startsWith("unknown") ||
+            Build.MODEL.contains("google_sdk", ignoreCase = true) ||
+            Build.MODEL.contains("Emulator", ignoreCase = true) ||
+            Build.MODEL.contains("Android SDK built for", ignoreCase = true) ||
+            Build.MANUFACTURER.contains("Genymotion", ignoreCase = true)
+
+        return if (emulator) "http://10.0.2.2:8080" else "http://127.0.0.1:8080"
+    }
 
     val api: RoxstarApi = Retrofit.Builder()
         .baseUrl(baseUrl)

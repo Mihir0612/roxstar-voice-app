@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -186,4 +188,61 @@ val verifyReleaseEndpoint by tasks.registering {
 
 tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
     dependsOn(verifyReleaseEndpoint)
+}
+
+// Keep physical debug devices on the same endpoint as the emulator. The
+// forwarding is recreated after every install, which also covers a device
+// restart where Android drops adb reverse rules.
+val reverseDebugPort by tasks.registering {
+    group = "development"
+    description = "Forwards the local backend to a USB-connected debug device."
+
+    val localProperties = Properties().apply {
+        rootProject.file("local.properties").inputStream().use { load(it) }
+    }
+    val sdkPath = System.getenv("ANDROID_HOME")
+        ?: System.getenv("ANDROID_SDK_ROOT")
+        ?: localProperties.getProperty("sdk.dir")
+    val adbName = if (System.getProperty("os.name").contains("Windows", ignoreCase = true)) {
+        "adb.exe"
+    } else {
+        "adb"
+    }
+    val adb = sdkPath?.let { file("$it/platform-tools/$adbName") }
+
+    doLast {
+        if (adb == null || !adb.isFile) {
+            logger.lifecycle("adb was not found; skipping USB backend forwarding.")
+            return@doLast
+        }
+
+        val devices = ProcessBuilder(adb.absolutePath, "devices")
+            .redirectErrorStream(true)
+            .start()
+            .let { process ->
+                process.inputStream.bufferedReader().useLines { lines ->
+                    lines.map { it.trim().split("\t") }
+                        .filter { it.size == 2 && it[1] == "device" }
+                        .map { it[0] }
+                        .toList()
+                }
+            }
+
+        if (devices.isEmpty()) {
+            logger.lifecycle("No online Android devices found; skipping USB backend forwarding.")
+            return@doLast
+        }
+
+        devices.forEach { serial ->
+            project.exec {
+                commandLine(adb.absolutePath, "-s", serial, "reverse", "tcp:8080", "tcp:8080")
+                isIgnoreExitValue = true
+            }
+            logger.lifecycle("Backend forwarding configured for $serial")
+        }
+    }
+}
+
+tasks.matching { it.name == "installDebug" }.configureEach {
+    dependsOn(reverseDebugPort)
 }
