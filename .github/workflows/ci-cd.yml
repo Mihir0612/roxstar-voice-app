@@ -115,7 +115,9 @@ jobs:
   deploy:
     name: Deploy to Cloud Run
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # Render deploys this service from the main branch. Keep the Cloud Run
+    # job available for reference, but do not run it without GCP credentials.
+    if: false
     runs-on: ubuntu-latest
 
     permissions:
