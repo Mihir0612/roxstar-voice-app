@@ -246,3 +246,7 @@ val reverseDebugPort by tasks.registering {
 tasks.matching { it.name == "installDebug" }.configureEach {
     dependsOn(reverseDebugPort)
 }
+
+tasks.matching { it.name == "assembleDebug" }.configureEach {
+    dependsOn(reverseDebugPort)
+}

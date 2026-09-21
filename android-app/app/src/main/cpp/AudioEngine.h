@@ -21,6 +21,7 @@ enum class EffectType {
     Echo = 1,
     Reverb = 2,
     PitchShift = 3,
+    ReverseEcho = 4,
 };
 
 enum class EngineResult {

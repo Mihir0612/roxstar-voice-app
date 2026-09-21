@@ -23,12 +23,13 @@ class NativeContractTest {
         assertEquals(1, AudioEffect.ECHO.nativeOrdinal)
         assertEquals(2, AudioEffect.REVERB.nativeOrdinal)
         assertEquals(3, AudioEffect.PITCH_SHIFT.nativeOrdinal)
+        assertEquals(4, AudioEffect.REVERSE_ECHO.nativeOrdinal)
     }
 
     @Test
     fun `effect api values match the database CHECK constraint`() {
-        // drafts.effect CHECK (effect IN ('NONE','ECHO','REVERB','PITCH_SHIFT'))
-        val allowed = setOf("NONE", "ECHO", "REVERB", "PITCH_SHIFT")
+        // drafts.effect CHECK (effect IN ('NONE','ECHO','REVERB','PITCH_SHIFT','REVERSE_ECHO'))
+        val allowed = setOf("NONE", "ECHO", "REVERB", "PITCH_SHIFT", "REVERSE_ECHO")
         AudioEffect.entries.forEach { effect ->
             assert(effect.apiValue in allowed) { "${effect.apiValue} would be rejected by the backend" }
         }

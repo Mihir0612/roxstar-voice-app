@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
@@ -128,6 +129,7 @@ fun AudioScreen(
                         onStop = viewModel::stopPlayback,
                         onDelete = { viewModel.deleteDraft(draft) },
                         onShare = { onShareDraft(draft) },
+                        onEdit = { viewModel.openEditDraft(draft) },
                     )
                 }
             }
@@ -141,6 +143,11 @@ fun AudioScreen(
             onConfirm = viewModel::confirmSave,
             onDiscard = viewModel::discardPendingSave,
         )
+    }
+
+    // Show the edit sheet when a draft is being edited.
+    if (ui.editingDraft != null) {
+        EditDraftSheet(ui = ui, viewModel = viewModel)
     }
 }
 
@@ -217,6 +224,7 @@ private fun DraftRow(
     onStop: () -> Unit,
     onDelete: () -> Unit,
     onShare: () -> Unit,
+    onEdit: () -> Unit,
 ) {
     Card {
         Row(
@@ -254,6 +262,11 @@ private fun DraftRow(
                 }
             }
 
+            // Edit button — to the left of Delete, as specified.
+            IconButton(onClick = onEdit, enabled = draft.exists) {
+                Icon(Icons.Default.Edit, contentDescription = "Edit ${draft.name}")
+            }
+
             IconButton(onClick = onDelete) {
                 Icon(Icons.Default.Delete, contentDescription = "Delete ${draft.name}")
             }
@@ -279,24 +292,37 @@ private fun SaveDraftDialog(
     onConfirm: (String) -> Unit,
     onDiscard: () -> Unit,
 ) {
-    var name by remember { mutableStateOf("") }
+    val defaultName = remember(effectLabel) { "Voice Take ($effectLabel)" }
+    var name by remember { mutableStateOf(defaultName) }
 
     AlertDialog(
         onDismissRequest = onDiscard,
-        title = { Text("Save this take?") },
+        title = { Text("Save Voice Recording") },
         text = {
             Column {
-                Text("${formatDuration(durationMs)} recorded with $effectLabel.")
+                Text("Recorded ${formatDuration(durationMs)} with $effectLabel.")
                 Spacer(Modifier.height(12.dp))
+                Text(
+                    "Please enter a new name for your voice recording:",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Draft name") },
+                    label = { Text("Voice Name") },
                     singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
         },
-        confirmButton = { Button(onClick = { onConfirm(name) }) { Text("Save draft") } },
+        confirmButton = {
+            Button(
+                onClick = { onConfirm(name.ifBlank { defaultName }) },
+                enabled = name.isNotBlank(),
+            ) { Text("Save Recording") }
+        },
         dismissButton = { TextButton(onClick = onDiscard) { Text("Discard") } },
     )
 }

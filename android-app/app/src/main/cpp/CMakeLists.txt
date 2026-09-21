@@ -38,6 +38,7 @@ add_library(roxstar_audio SHARED
         AudioEngine.cpp
         effects/EchoEffect.cpp
         effects/PitchShiftEffect.cpp
+        effects/ReverseEchoEffect.cpp
         WavWriter.cpp
 )
 

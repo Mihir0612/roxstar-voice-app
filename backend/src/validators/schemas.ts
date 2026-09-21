@@ -39,7 +39,7 @@ export const joinRoomParam = z.object({
     .regex(/^[A-Za-z0-9-]+$/, 'Must be a room id or join code'),
 });
 
-export const audioEffect = z.enum(['NONE', 'ECHO', 'REVERB', 'PITCH_SHIFT']);
+export const audioEffect = z.enum(['NONE', 'ECHO', 'REVERB', 'PITCH_SHIFT', 'REVERSE_ECHO']);
 
 export const draftBody = z.object({
   draftId: uuid,

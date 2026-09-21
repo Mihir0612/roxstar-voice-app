@@ -81,7 +81,7 @@ CREATE TABLE drafts (
     owner_id        UUID        NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     name            TEXT        NOT NULL CHECK (char_length(name) BETWEEN 1 AND 80),
     duration_ms     INTEGER     NOT NULL CHECK (duration_ms > 0 AND duration_ms <= 3600000),
-    effect          TEXT        NOT NULL DEFAULT 'NONE' CHECK (effect IN ('NONE', 'ECHO', 'REVERB', 'PITCH_SHIFT')),
+    effect          TEXT        NOT NULL DEFAULT 'NONE' CHECK (effect IN ('NONE', 'ECHO', 'REVERB', 'PITCH_SHIFT', 'REVERSE_ECHO')),
     hosted_file_url TEXT,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()

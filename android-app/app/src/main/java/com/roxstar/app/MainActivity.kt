@@ -111,9 +111,15 @@ private fun MainTabs(
     val roomVm: RoomViewModel = viewModel(factory = factory)
 
     val roomState by roomVm.state.collectAsState()
+    val drafts by audioVm.drafts.collectAsState()
     var tab by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(currentUserId) { roomVm.setCurrentUser(currentUserId) }
+
+    // Resolve the local DraftEntity that matches the shared draft so RoomScreen
+    // can pass it to SharedDraftCard for playback.
+    val localSharedDraft = roomState.sharedDraft?.draft?.draftId
+        ?.let { id -> drafts.firstOrNull { it.draftId == id } }
 
     // The permission is requested when the screen opens rather than on the
     // first tap: being asked mid-gesture is how a user ends up denying it.
@@ -155,6 +161,9 @@ private fun MainTabs(
                 onStartSpin = roomVm::startSpin,
                 onRefresh = roomVm::refresh,
                 onDismissError = roomVm::dismissError,
+                localSharedDraft = localSharedDraft,
+                onPlaySharedDraft = { roomVm.playSharedDraft(localSharedDraft) },
+                onStopSharedDraftPlayback = roomVm::stopSharedDraftPlayback,
             )
         }
     }

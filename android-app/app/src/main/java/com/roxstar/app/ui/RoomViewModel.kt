@@ -1,5 +1,6 @@
 package com.roxstar.app.ui
 
+import android.media.MediaPlayer
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.roxstar.app.data.api.ParticipantDto
@@ -39,6 +40,8 @@ data class RoomUiState(
     val error: String? = null,
     /** Transient feed for the UI, e.g. "Sam was eliminated". */
     val activity: List<String> = emptyList(),
+    /** True while the shared draft is being played back on this device. */
+    val isPlayingSharedDraft: Boolean = false,
 ) {
     val isInRoom: Boolean get() = room != null
 
@@ -71,6 +74,9 @@ class RoomViewModel(
 
     private val _state = MutableStateFlow(RoomUiState())
     val state: StateFlow<RoomUiState> = _state.asStateFlow()
+
+    /** MediaPlayer for locally playing back a shared draft on this device. */
+    private var player: MediaPlayer? = null
 
     /**
      * Held so a retried Start Spin reuses the same key (D18).
@@ -194,6 +200,47 @@ class RoomViewModel(
 
     fun dismissError() = _state.update { it.copy(error = null) }
 
+    /* ------------------------------ playback -------------------------------- */
+
+    /**
+     * Play the locally-stored WAV for [draft] (by draftId lookup in the local
+     * draft store via the repository).
+     *
+     * Audio is device-local (D10): only the participant whose device holds the
+     * WAV file can play it.  Callers are expected to show the button as disabled
+     * or grayed out when the file is absent.
+     */
+    fun playSharedDraft(localDraft: DraftEntity?) {
+        stopSharedDraftPlayback()
+        if (localDraft == null || !localDraft.exists) {
+            _state.update { it.copy(error = "Audio is stored on the recording device and cannot be played here.") }
+            return
+        }
+        val mp = MediaPlayer()
+        runCatching {
+            mp.setDataSource(localDraft.filePath)
+            mp.setOnCompletionListener { stopSharedDraftPlayback() }
+            mp.setOnErrorListener { _, _, _ -> stopSharedDraftPlayback(); true }
+            mp.prepare()
+            mp.start()
+        }.onFailure {
+            mp.release()
+            _state.update { it.copy(error = "Could not play the draft audio.") }
+            return
+        }
+        player = mp
+        _state.update { it.copy(isPlayingSharedDraft = true) }
+    }
+
+    fun stopSharedDraftPlayback() {
+        player?.runCatching {
+            if (isPlaying) stop()
+            release()
+        }
+        player = null
+        _state.update { it.copy(isPlayingSharedDraft = false) }
+    }
+
     /* --------------------------------- events -------------------------------- */
 
     private fun observeSocket() {
@@ -285,6 +332,7 @@ class RoomViewModel(
     }
 
     override fun onCleared() {
+        stopSharedDraftPlayback()
         socket.disconnect()
         super.onCleared()
     }

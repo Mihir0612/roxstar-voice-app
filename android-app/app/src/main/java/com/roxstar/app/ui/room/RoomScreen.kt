@@ -14,10 +14,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -33,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.roxstar.app.data.api.ParticipantDto
 import com.roxstar.app.data.api.SpinDto
+import com.roxstar.app.data.local.DraftEntity
 import com.roxstar.app.ui.RoomUiState
 import com.roxstar.app.ui.components.ConnectionPill
 import com.roxstar.app.ui.components.ErrorBanner
@@ -56,38 +62,56 @@ fun RoomScreen(
     onStartSpin: () -> Unit,
     onRefresh: () -> Unit,
     onDismissError: () -> Unit,
+    /** The caller must pass the local DraftEntity that matches the shared draft (or null). */
+    localSharedDraft: DraftEntity? = null,
+    onPlaySharedDraft: () -> Unit = {},
+    onStopSharedDraftPlayback: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+    androidx.compose.foundation.layout.Box(modifier = modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
 
-        state.error?.let { ErrorBanner(message = it, onDismiss = onDismissError) }
+            state.error?.let { ErrorBanner(message = it, onDismiss = onDismissError) }
 
-        if (!state.isInRoom) {
-            Lobby(isLoading = state.isLoading, onCreateRoom = onCreateRoom, onJoinRoom = onJoinRoom)
-            return@Column
+            if (!state.isInRoom) {
+                Lobby(isLoading = state.isLoading, onCreateRoom = onCreateRoom, onJoinRoom = onJoinRoom)
+                return@Column
+            }
+
+            RoomHeader(state = state, onLeaveRoom = onLeaveRoom, onRefresh = onRefresh)
+
+            Spacer(Modifier.height(16.dp))
+
+            SectionHeader("Participants (${state.participants.size})")
+            state.participants.forEach { participant ->
+                val isEliminated = state.spin?.eliminatedParticipants?.any { it.userId == participant.userId } == true
+                ParticipantRow(participant, isSelf = participant.userId == state.currentUserId, isEliminated = isEliminated)
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            SharedDraftCard(
+                state = state,
+                localDraft = localSharedDraft,
+                onPlay = onPlaySharedDraft,
+                onStop = onStopSharedDraftPlayback,
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            SpinSection(
+                state = state,
+                onStartSpin = onStartSpin,
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            ActivityFeed(state.activity)
         }
 
-        RoomHeader(state = state, onLeaveRoom = onLeaveRoom, onRefresh = onRefresh)
-
-        Spacer(Modifier.height(16.dp))
-
-        SectionHeader("Participants (${state.participants.size})")
-        state.participants.forEach { ParticipantRow(it, isSelf = it.userId == state.currentUserId) }
-
-        Spacer(Modifier.height(16.dp))
-
-        SharedDraftCard(state)
-
-        Spacer(Modifier.height(16.dp))
-
-        SpinSection(
-            state = state,
-            onStartSpin = onStartSpin,
-        )
-
-        Spacer(Modifier.height(16.dp))
-
-        ActivityFeed(state.activity)
+        if (state.spin?.status == "COMPLETED" && state.spin?.winner != null) {
+            FirecrackersAnimation()
+        }
     }
 }
 
@@ -180,24 +204,38 @@ private fun RoomHeader(state: RoomUiState, onLeaveRoom: () -> Unit, onRefresh: (
 }
 
 @Composable
-private fun ParticipantRow(participant: ParticipantDto, isSelf: Boolean) {
+private fun ParticipantRow(participant: ParticipantDto, isSelf: Boolean, isEliminated: Boolean = false) {
+    val alpha = if (isEliminated) 0.35f else 1.0f
+
     Row(
-        Modifier.fillMaxWidth().padding(vertical = 6.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         StatusDot(connected = participant.isConnected)
         Text(
-            participant.displayName + if (isSelf) " (you)" else "",
+            participant.displayName + (if (isSelf) " (you)" else "") + (if (isEliminated) " ✖ (Eliminated)" else ""),
             style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (isEliminated) FontWeight.Normal else FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
             modifier = Modifier.weight(1f),
         )
         if (participant.role != "MEMBER") {
-            Text(participant.role, style = MaterialTheme.typography.labelSmall)
+            Text(
+                participant.role,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
+            )
         }
-        if (!participant.isConnected) {
-            // Distinguishes "gone" from "reconnecting" (D13) while the grace
-            // period is still running.
+        if (isEliminated) {
+            Text(
+                "Out",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+            )
+        } else if (!participant.isConnected) {
             Text(
                 "reconnecting",
                 style = MaterialTheme.typography.labelSmall,
@@ -208,7 +246,12 @@ private fun ParticipantRow(participant: ParticipantDto, isSelf: Boolean) {
 }
 
 @Composable
-private fun SharedDraftCard(state: RoomUiState) {
+private fun SharedDraftCard(
+    state: RoomUiState,
+    localDraft: DraftEntity?,
+    onPlay: () -> Unit,
+    onStop: () -> Unit,
+) {
     SectionHeader("Shared draft")
 
     val shared = state.sharedDraft
@@ -221,9 +264,35 @@ private fun SharedDraftCard(state: RoomUiState) {
         return
     }
 
+    val audioAvailable = localDraft?.exists == true
+
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column(Modifier.fillMaxWidth().padding(14.dp)) {
-            Text(shared.draft.name, fontWeight = FontWeight.SemiBold)
+
+            // Header row: draft name + play/stop button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    shared.draft.name,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                // Play/Stop button — only truly active when this device holds the WAV.
+                IconButton(
+                    onClick = if (state.isPlayingSharedDraft) onStop else onPlay,
+                    enabled = audioAvailable || state.isPlayingSharedDraft,
+                ) {
+                    Icon(
+                        imageVector = if (state.isPlayingSharedDraft) Icons.Default.Stop else Icons.Default.PlayArrow,
+                        contentDescription = if (state.isPlayingSharedDraft) "Stop playback" else "Listen to shared draft",
+                        tint = if (audioAvailable) MaterialTheme.colorScheme.primary
+                               else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
             KeyValue("Effect", shared.draft.effect)
             KeyValue("Duration", "${shared.draft.durationMs / 1000}s")
             KeyValue(
@@ -232,9 +301,13 @@ private fun SharedDraftCard(state: RoomUiState) {
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                // Being explicit prevents the reasonable assumption that other
-                // people can hear it (D10).
-                "Audio stays on the recording device. Only the details above are shared.",
+                if (audioAvailable) {
+                    "Tap ▶ to listen. Audio plays from your local recording."
+                } else {
+                    // Being explicit prevents the reasonable assumption that other
+                    // people can hear it (D10).
+                    "Audio is stored on the recording device. Only the details above are shared with the room."
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -260,10 +333,17 @@ private fun SpinSection(state: RoomUiState, onStartSpin: () -> Unit) {
                 spin.isRunning -> RunningSpin(spin, state)
 
                 spin.status == "COMPLETED" -> {
-                    Text("Winner", style = MaterialTheme.typography.labelSmall)
+                    SpinWheelCanvas(
+                        participants = spin.participants,
+                        isRunning = false,
+                        winnerUserId = spin.winner?.userId,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text("🎉 WINNER 🎉", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                     Text(
                         spin.winner?.displayName ?: "Unknown",
                         style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.secondary,
                     )
                     Spacer(Modifier.height(8.dp))
@@ -303,15 +383,22 @@ private fun SpinSection(state: RoomUiState, onStartSpin: () -> Unit) {
 
 @Composable
 private fun RunningSpin(spin: SpinDto, state: RoomUiState) {
-    Text("Spin running", style = MaterialTheme.typography.titleLarge)
+    Text("Spin wheel running...", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     Text(
-        "One player is eliminated every ${spin.eliminationIntervalMs / 1000} seconds.",
+        "One player is eliminated every ${spin.eliminationIntervalMs / 1000} seconds. Eliminated players are dimmed and excluded from future spins.",
         style = MaterialTheme.typography.labelSmall,
+    )
+
+    Spacer(Modifier.height(8.dp))
+
+    SpinWheelCanvas(
+        participants = spin.participants,
+        isRunning = true,
     )
 
     Spacer(Modifier.height(12.dp))
 
-    Text("Still in (${spin.remainingParticipants.size})", style = MaterialTheme.typography.labelSmall)
+    Text("Still in round (${spin.remainingParticipants.size})", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold)
     spin.remainingParticipants.forEach { p ->
         Text(
             p.displayName + if (p.userId == state.currentUserId) " (you)" else "",

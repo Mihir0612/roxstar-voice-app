@@ -54,6 +54,7 @@ Java_com_roxstar_app_audio_NativeAudioBridge_nativeStartRecording(
         case 1: effect = roxstar::EffectType::Echo; break;
         case 2: effect = roxstar::EffectType::Reverb; break;
         case 3: effect = roxstar::EffectType::PitchShift; break;
+        case 4: effect = roxstar::EffectType::ReverseEcho; break;
         default: break;
     }
 

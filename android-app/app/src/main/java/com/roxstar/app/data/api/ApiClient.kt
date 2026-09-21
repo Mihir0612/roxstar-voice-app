@@ -81,12 +81,13 @@ object ApiClient {
     val baseUrl: String = resolveBaseUrl().trimEnd('/') + "/"
 
     private fun resolveBaseUrl(): String {
-        if (!BuildConfig.DEBUG || BuildConfig.API_BASE_URL != "http://10.0.2.2:8080") {
+        if (!BuildConfig.DEBUG) {
             return BuildConfig.API_BASE_URL
         }
 
-        // 10.0.2.2 is available only inside an emulator. Physical debug
-        // devices use adb reverse to reach the backend through localhost.
+        // The emulator exposes the development computer as 10.0.2.2. Every
+        // physical device uses localhost because installDebug configures adb
+        // reverse for its serial number; no phone model or LAN IP is needed.
         val emulator = Build.FINGERPRINT.startsWith("generic") ||
             Build.FINGERPRINT.startsWith("unknown") ||
             Build.MODEL.contains("google_sdk", ignoreCase = true) ||

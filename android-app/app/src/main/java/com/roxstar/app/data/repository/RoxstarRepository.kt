@@ -22,6 +22,7 @@ import kotlinx.coroutines.withContext
 import retrofit2.Response
 import java.io.IOException
 import java.util.UUID
+import kotlinx.coroutines.delay
 
 /**
  * Result type for every network call.
@@ -76,11 +77,20 @@ class RoxstarRepository(
             ?: "fallback-${UUID.randomUUID()}"
     }
 
-    suspend fun createSession(displayName: String): ApiResult<UserDto> = call {
-        api.createSession(CreateSessionRequest(displayName = displayName, deviceId = deviceId))
-    }.map { response ->
-        ApiClient.tokenStore.set(response.token)
-        response.user
+    suspend fun createSession(displayName: String): ApiResult<UserDto> {
+        val request = CreateSessionRequest(displayName = displayName, deviceId = deviceId)
+        var result: ApiResult<UserDto> = ApiResult.NetworkError(IOException("Session request did not run"))
+
+        for (attempt in 0 until 4) {
+            result = call { api.createSession(request) }.map { response ->
+                ApiClient.tokenStore.set(response.token)
+                response.user
+            }
+            if (result !is ApiResult.NetworkError || attempt == 3) break
+            delay((attempt + 1) * 750L)
+        }
+
+        return result
     }
 
     fun signOut() = ApiClient.tokenStore.clear()

@@ -7,6 +7,7 @@
 
 #include "effects/EchoEffect.h"
 #include "effects/PitchShiftEffect.h"
+#include "effects/ReverseEchoEffect.h"
 
 #define LOG_TAG "RoxstarAudio"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
@@ -38,6 +39,8 @@ std::unique_ptr<AudioEffect> AudioEngine::createEffect(EffectType type) {
             return std::make_unique<EchoEffect>(0.06f, 0.75f, 0.6f);
         case EffectType::PitchShift:
             return std::make_unique<PitchShiftEffect>(5.0f);
+        case EffectType::ReverseEcho:
+            return std::make_unique<ReverseEchoEffect>(0.35f, 0.50f, 0.55f);
         case EffectType::None:
         default:
             return nullptr;

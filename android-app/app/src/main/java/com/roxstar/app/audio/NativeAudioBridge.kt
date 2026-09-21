@@ -13,6 +13,7 @@ enum class AudioEffect(val nativeOrdinal: Int, val label: String, val apiValue: 
     ECHO(1, "Echo", "ECHO"),
     REVERB(2, "Reverb (echo-based)", "REVERB"),
     PITCH_SHIFT(3, "Pitch Shift (+5 semitones)", "PITCH_SHIFT"),
+    REVERSE_ECHO(4, "Reverse Echo", "REVERSE_ECHO"),
 }
 
 /** Native status codes, mirroring `roxstar::EngineResult`. */

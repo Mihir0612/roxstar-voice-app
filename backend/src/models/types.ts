@@ -13,7 +13,7 @@ export type MembershipStatus = 'ACTIVE' | 'LEFT';
 export type ConnectionStatus = 'CONNECTED' | 'DISCONNECTED';
 export type SpinStatus = 'WAITING' | 'RUNNING' | 'COMPLETED' | 'ABORTED';
 export type ParticipantStatus = 'ACTIVE' | 'ELIMINATED' | 'LEFT' | 'WINNER';
-export type AudioEffect = 'NONE' | 'ECHO' | 'REVERB' | 'PITCH_SHIFT';
+export type AudioEffect = 'NONE' | 'ECHO' | 'REVERB' | 'PITCH_SHIFT' | 'REVERSE_ECHO';
 export type SpinAbortReason = 'NO_PARTICIPANTS' | 'ROOM_CLOSED' | 'MANUAL';
 
 export type SpinEventType = 'spin_started' | 'user_eliminated' | 'winner_announced' | 'spin_aborted';
